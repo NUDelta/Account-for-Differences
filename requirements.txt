@@ -1,0 +1,4 @@
+numpy~=1.24.2
+nltk~=3.8.1
+PyMySQL~=1.0.3
+scikit-learn~=1.2.2
