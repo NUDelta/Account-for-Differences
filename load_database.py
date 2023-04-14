@@ -55,17 +55,16 @@ if __name__ == '__main__':
                     connection.commit()
             '''
 
-            #
             createReviewTable = '''CREATE TABLE IF NOT EXISTS review(
                                                                     Review_id CHAR(22),
                                                                     B_id CHAR(22),
                                                                     Rating INT(1), 
                                                                     Content TEXT,
                                                                     PRIMARY KEY(Review_id),
-                                                                    FOREIGN KEY(b_id) REFERENCES business(business_id))
+                                                                    FOREIGN KEY(b_id) REFERENCES business(Business_id))
                                                                     '''
             cursor.execute(createReviewTable)
-
+            '''
             with open('yelp_dataset/review.json') as f:
                 for line in f:
                     current_object = json.loads(line)
@@ -79,6 +78,36 @@ if __name__ == '__main__':
                     print(insertReview)
                     cursor.execute(insertReview)
                     connection.commit()
+            '''
+
+            createCategoryTable = '''CREATE TABLE IF NOT EXISTS category(
+                                                                            Business_id CHAR(22),
+                                                                            Category_name VARCHAR(50),
+                                                                            PRIMARY KEY(Business_id,Category_name),
+                                                                            FOREIGN KEY(Business_id) REFERENCES business(Business_id))
+                                                                            '''
+
+            cursor.execute(createCategoryTable)
+
+            '''
+            with open('yelp_dataset/business.json') as f:
+                for line in f:
+                    current_object = json.loads(line)
+                    business_id = current_object['business_id']
+                    names = current_object['categories']
+                    #print(names)
+                    if names is not None:
+                        # escape single quotes
+                        names = names.replace("'", '"')
+                        # convert list to set to avoid duplicates
+                        name_list = set(names.split(', '))
+                        for name in name_list:
+                            insertCategory = f"INSERT INTO `category` (`Business_id`, `Category_name`) VALUES ('{business_id}','{name}')"
+                            print(insertCategory)
+                            cursor.execute(insertCategory)
+                            connection.commit()              
+            '''
+
 
     finally:
         connection.close()

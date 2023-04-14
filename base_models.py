@@ -9,10 +9,31 @@ import numpy as np
 import pickle
 import pymysql.cursors
 from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS, TfidfVectorizer
-import nltk
 from nltk.stem import PorterStemmer
 
-
+def all_states():
+    connection = pymysql.connect(host='localhost',
+                                 user='root',
+                                 port=3306,
+                                 password='suhuai2001',
+                                 db='yelp',
+                                 cursorclass=pymysql.cursors.Cursor)
+    cursor = connection.cursor()
+    query = "SELECT DISTINCT business.State FROM business"
+    cursor.execute(query)
+    states = [state[0] for state in cursor]
+    '''
+    os.mkdir('reviewtext/state')
+    os.mkdir('reviewtext/city')
+    for state in states:
+        path1 = 'reviewtext/state' + '/' + state
+        path2 = 'reviewtext/city' + '/' + state
+        os.mkdir(path1)
+        os.mkdir(path2)
+    '''
+    cursor.close()
+    connection.close()
+    return states
 def get_cities():
     connection = pymysql.connect(host='localhost',
                                  user='root',
@@ -23,15 +44,43 @@ def get_cities():
 
     cursor = connection.cursor()
     cities = {}
-    categories = all_categories()
+    states = all_states()
     query = ("SELECT DISTINCT business.City FROM business "
              "WHERE business.State=%s")
 
-    for cat in categories:
-        cursor.execute(query, cat)
-        cities[cat] = [city[0] for city in cursor]
-
+    for state in states:
+        cursor.execute(query, state)
+        cities[state] = [city[0] for city in cursor]
+        '''
+        for city in cities[state]:
+            path = 'reviewtext/city' + '/' + state + '/' + city
+            os.mkdir(path)
+        '''
+    cursor.close()
+    connection.close()
     return cities
+
+all_cities = get_cities()
+
+def get_categories():
+    categories_states = []
+    categories_cities = []
+    connection = pymysql.connect(host='localhost',
+                                 user='root',
+                                 port=3306,
+                                 password='suhuai2001',
+                                 db='yelp',
+                                 cursorclass=pymysql.cursors.Cursor)
+
+    cursor = connection.cursor()
+    cities = {}
+    states = all_states()
+    query = ("SELECT DISTINCT business.City FROM business "
+             "WHERE business.State=%s")
+
+
+
+
 
 
 def stemmer(text):
@@ -48,63 +97,36 @@ def preprocessor(text):
     return re.sub(pattern, "", text)
 
 
-def cat2doc(category, flag='state', city=None):
+def cat2doc(state, cat, flag='state', city=None):
     """Sushi Bars -> Sushi Bars.txt
     From Category to Document filepath """
 
-    path = "reviewtext/%s/%s" % (flag, category)
+    path = "reviewtext/%s/%s" % (flag, state)
 
     if flag == 'city' and city is not None:
         # some city name somehow contains slashes for example Wayne/Radnor in PA.
         path = path + '/' + city.replace('/', '-')
 
+    path = path + '/' + cat.replace('/', '-')
     return path + '.txt'
 
 
-def cats2docs(categories, flag):
+def cats2docs(state, categories, flag='state', city=None):
 
     if isinstance(categories, str):
         categories = (categories, )
 
     if flag == 'city':
-        return [cat2doc(cat, 'city', city) for cat in categories for city in all_cities[cat]]
+        return [cat2doc(state, cat, 'city', city) for cat in categories]
 
-    return [cat2doc(cat, flag) for cat in categories]
-
-
-def all_categories(flag='state'):
-    connection = pymysql.connect(host='localhost',
-                                 user='root',
-                                 port=3306,
-                                 password='suhuai2001',
-                                 db='yelp',
-                                 cursorclass=pymysql.cursors.Cursor)
-
-    cursor = connection.cursor()
-
-    query = "SELECT DISTINCT business.State FROM business"
-
-    if flag == 'rating':
-        query = "SELECT DISTINCT review.Rating FROM review"
-
-    cursor.execute(query)
-
-    categories = [state[0] for state in cursor]
-
-    cursor.close()
-    connection.close()
-
-    return categories
+    return [cat2doc(state, cat, flag) for cat in categories]
 
 
-all_cities = get_cities()
-
-
-def write_document(cursor, cat, flag='state'):
+def write_document(cursor, state, cat, flag='state'):
     """ Given a yelp category, build out a text document
     which has all the reviews for that category """
     if flag == 'city':
-        cities = all_cities[cat]
+        cities = all_cities[state]
         n_encoding_errors = 0
         n_review = 0
         for city in cities:
@@ -113,9 +135,9 @@ def write_document(cursor, cat, flag='state'):
                      "ON review.B_id = business.Business_id "
                      "WHERE business.State=%s AND business.City=%s")
             print(query)
-            cursor.execute(query, (cat, city))
+            cursor.execute(query, (state, city, cat))
 
-            with io.open(cat2doc(cat, flag, city), 'w', encoding='utf8') as f:
+            with io.open(cat2doc(state, cat, flag, city), 'w', encoding='utf8') as f:
                 for text, in cursor:
                     try:
                         f.write(text)
@@ -126,19 +148,18 @@ def write_document(cursor, cat, flag='state'):
         return n_encoding_errors, n_review
 
     query = ("SELECT review.Content "
-             "FROM review INNER JOIN business "
+             "FROM review "
+             "INNER JOIN (business "
+             "INNER JOIN category "
+             "ON business.Business_id = category.Business_id) "
              "ON review.B_id = business.Business_id "
-             "WHERE business.State=%s")
-    if flag == 'rating':
-        query = ("SELECT review.Content "
-                 "FROM review "
-                 "WHERE review.Rating=%s")
+             "WHERE business.State=%s category.Category_name=%s")
 
-    cursor.execute(query, cat)
+    cursor.execute(query, (state, cat))
 
     n_encoding_errors = 0
     n_review = 0
-    with io.open(cat2doc(cat, flag), 'w', encoding='utf8') as f:
+    with io.open(cat2doc(state, cat, flag), 'w', encoding='utf8') as f:
         for text, in cursor:
             try:
                 f.write(text)
@@ -149,18 +170,18 @@ def write_document(cursor, cat, flag='state'):
     return n_encoding_errors, n_review
 
 
-def document_text_iterator(categories, flag='state'):
-    for filepath in cats2docs(categories,flag):
+def document_text_iterator(states, flag='state'):
+    for filepath in cats2docs(states,flag):
         with io.open(filepath, 'r', encoding='utf8') as f:
             yield f.read()
 
 
-def document_iterator(categories, flag='state'):
-    for filepath in cats2docs(categories, flag):
+def document_iterator(states, flag='state'):
+    for filepath in cats2docs(states, flag):
         yield filepath
 
 
-def sql2txt(categories, flag='state'):
+def sql2txt(states, flag='state'):
     connection = pymysql.connect(host='localhost',
                                  user='root',
                                  port=3306,
@@ -170,30 +191,30 @@ def sql2txt(categories, flag='state'):
 
     cursor = connection.cursor()
 
-    if isinstance(categories, str):
-        categories = (categories, )
+    if isinstance(states, str):
+        states = (states, )
 
-    for cat in categories:
-            n_errors, n_total = write_document(cursor, cat, flag)
-            print("%s: %d errors, %d total" % (cat, n_errors, n_total))
+    for state in states:
+            n_errors, n_total = write_document(cursor, state, cat, flag)
+            print("%s: %d errors, %d total" % (state, n_errors, n_total))
 
     cursor.close()
     connection.close()
 
 
 def create_all_documents(flag='state'):
-    cats = all_categories(flag)
+    states = all_states()
     # print("Creating %d documents" % len(cats))
-    sql2txt(cats, flag)
+    sql2txt(states, flag)
 
 
-def vectorize_sklearn(categories, flag='state'):
+def vectorize_sklearn(states, flag='state'):
     # should I use the vocabulary from something like fasttext?
     vect = TfidfVectorizer(input='filename', preprocessor=preprocessor, tokenizer=stemmer,
                            vocabulary=None, token_pattern=None, stop_words=stop_words)
-    X = vect.fit_transform(document_iterator(categories, flag))
+    X = vect.fit_transform(document_iterator(states, flag))
     vocabulary = vect.get_feature_names_out()
-    return X, categories, vocabulary
+    return X, states, vocabulary
 
 
 def save_pickle(matrix, filename):
@@ -202,11 +223,11 @@ def save_pickle(matrix, filename):
 
 
 def compute_and_save(flag='state'):
-    categories = all_categories(flag)
-    X, categories, vocabulary = vectorize_sklearn(categories, flag)
+    states = all_states()
+    X, states, vocabulary = vectorize_sklearn(states, flag)
     save_pickle(X, 'tfidf/%s.mtx' % flag)
     np.savez_compressed('tfidf/%s-meta' % flag,
-                        paths=cats2docs(categories, flag), vocabulary=vocabulary)
+                        paths=cats2docs(states, flag), vocabulary=vocabulary)
 
 
 if __name__ == '__main__':
@@ -214,12 +235,11 @@ if __name__ == '__main__':
     #               'Bikes',
     #               'Dance Clubs')
 
-    # create_all_documents(flag='rating')
-    # create_all_documents(flag='state')
+    #create_all_documents(flag='state')
     # create_all_documents(flag='city')
     #compute_and_save('state')
-    #compute_and_save('rating')
-    compute_and_save('city')
+    #compute_and_save('city')
+    print('Y')
 
 '''
     categories = all_categories()
