@@ -1,2 +1,4 @@
 .idea/
 yelp_dataset/
+reviewtext/
+tfidf/

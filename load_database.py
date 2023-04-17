@@ -65,6 +65,7 @@ if __name__ == '__main__':
                                                                     '''
             cursor.execute(createReviewTable)
             '''
+            # insert reviews
             with open('yelp_dataset/review.json') as f:
                 for line in f:
                     current_object = json.loads(line)
@@ -90,6 +91,7 @@ if __name__ == '__main__':
             cursor.execute(createCategoryTable)
 
             '''
+            # insert business-category relation
             with open('yelp_dataset/business.json') as f:
                 for line in f:
                     current_object = json.loads(line)
