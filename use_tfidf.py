@@ -125,12 +125,112 @@ def retrieve_score(word, cat, state, flag='state', city=None):
         print('unknown flag')
 
 
+"""
+get top k related categories for a given word and a given state or city
+"""
+def get_top_k(word, k, state, flag='state', city=None):
+    scores = []
+    catToIndex, wordToIndex, matrix = read_data(state, flag, city)
+    for cat in catToIndex.keys():
+        score = retrieve_score_(word, cat, catToIndex, wordToIndex, matrix)
+        scores.append((cat, score))
+
+    scores.sort(key=lambda x: x[1], reverse=True)
+
+    # store the top k categories with their scores to a csv file
+    with open('top_k.csv', 'w') as f:
+        for i in range(k):
+            if i < len(scores):
+                f.write('%s,%s\n' % (scores[i][0], scores[i][1]))
+
+    return scores[:k]
+
+
 if __name__ == '__main__':
 
-    c, w, m = read_data('AZ')
-    print(c.keys())
+    # c, w, m = read_data('AZ')
+    # print(c.keys())
 
-    print(retrieve_score('fun', 'Restaurants', 'AZ'))
+    # print(retrieve_score('fun', 'Restaurants', 'AZ'))
+
+    case1 = [
+        ('fun','CA'),
+        ('fun','AZ'),
+        ('fun','TX'),
+        ('fun','IL'),
+        ('fun','PA'),
+        ('fun','MA'),
+    ]
+
+    case2 = [
+        ('fat food','CA'),
+        ('fat food','AZ'),
+        ('fat food','TX'),
+        ('fat food','IL'),
+        ('fat food','PA'),
+        ('fat food','MA'),
+    ]
+
+    case3 = [
+        ('healthy food','CA'),
+        ('healthy food','AZ'),
+        ('healthy food','TX'),
+        ('healthy food','IL'),
+        ('healthy food','PA'),
+        ('healthy food','MA'),
+    ]
+
+    case4 = [
+        ('danger','CA'),
+        ('danger','AZ'),
+        ('danger','TX'),
+        ('danger','IL'),
+        ('danger','PA'),
+        ('danger','MA'),
+    ]
+
+    case5 = [
+        ('private','CA'),
+        ('private','AZ'),
+        ('private','TX'),
+        ('private','IL'),
+        ('private','PA'),
+        ('private','MA'),  
+    ]
+
+    case6 = [
+        ('food','CA'),
+        ('food','AZ'),
+        ('food','TX'),
+        ('food','IL'),
+        ('food','PA'),
+        ('food','MA'),
+    ]
+
+    case7 = [
+        ('relax','CA'),
+        ('relax','AZ'),
+        ('relax','TX'),
+        ('relax','IL'),
+        ('relax','PA'),
+        ('relax','MA'),
+    ]
+
+    case8 = [
+        ('fat','CA'),
+        ('fat','AZ'),
+        ('fat','TX'),
+        ('fat','IL'),
+        ('fat','PA'),
+        ('fat','MA'),
+    ]
+
+    for case in case8:
+        print('=====================')
+        print(case)
+        print(get_top_k(case[0], 10, case[1]))
+
+        input('press enter to continue')
 
 
 
