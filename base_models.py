@@ -170,7 +170,6 @@ def write_document(cursor, state, cat, flag='state', city=None):
     """ Given a yelp category, build out a text document
     which has all the reviews for that category """
     if flag == 'city':
-        cities = all_cities[state]
         n_encoding_errors = 0
         n_review = 0
 
@@ -225,6 +224,45 @@ def document_text_iterator(state, categories, flag='state', city=None):
 def document_iterator(state, categories, flag='state', city=None):
     for filepath in cats2docs(state, categories, flag, city):
         yield filepath
+
+
+def document_iterator_super(flag='state'):
+    if flag == 'states':
+        states = all_states()
+        for state in states:
+            categories = categories_of_state[state]
+            document_iterator(state, categories, flag)
+
+    if flag == 'city':
+        states = all_states()
+        candidate_cities = non_empty_cities()
+        for state in states:
+            cites = candidate_cities[state]
+            for city in cites:
+                categories = categories_of_city[state][city]
+                document_iterator(state, categories, flag, city)
+
+
+def prepare_document_names(flag='state'):
+    result = []
+    if flag == 'state':
+        states = all_states()
+        for state in states:
+            categories = categories_of_state[state]
+            for filepath in cats2docs(state, categories, flag):
+                result.append(filepath)
+
+    if flag == 'city':
+        states = all_states()
+        candidate_cities = non_empty_cities()
+        for state in states:
+            cites = candidate_cities[state]
+            for city in cites:
+                categories = categories_of_city[state][city]
+                for filepath in cats2docs(state, categories, flag,city):
+                    result.append(filepath)
+
+    return result
 
 
 def sql2txt(states, flag='state'):
@@ -286,11 +324,12 @@ def create_all_documents(flag='state'):
     sql2txt(states, flag)
 
 
-def vectorize_sklearn(state, categories, flag='state', city=None):
+def vectorize_sklearn(flag='state'):
     # should I use the vocabulary from something like fasttext?
     vect = TfidfVectorizer(input='filename', preprocessor=preprocessor, tokenizer=None,
                            vocabulary=None, token_pattern=r"[A-Za-z'-]+", stop_words=stop_words)
-    X = vect.fit_transform(document_iterator(state, categories, flag, city))
+    document_names = prepare_document_names(flag)
+    X = vect.fit_transform(document_names)
     vocabulary = vect.get_feature_names_out()
     return X, vocabulary
 
@@ -301,30 +340,13 @@ def save_pickle(matrix, filename):
 
 
 def compute_and_save(flag='state'):
-    if flag == 'state':
-        states = all_states()
-        for state in states:
-            categories = categories_of_state[state]
-            X, vocabulary = vectorize_sklearn(state, categories, flag)
-            save_pickle(X, 'tfidf/%s/%s.mtx' % (flag, state))
-            np.savez_compressed('tfidf/%s/%s-meta' % (flag, state),
-                                categories=categories, vocabulary=vocabulary)
-            print(state+' finished!')
 
-    elif flag == 'city':
-        states = all_states()
-        candidate_cities = non_empty_cities()
-        for state in states:
-            cites = candidate_cities[state]
-            for city in cites:
-                categories = categories_of_city[state][city]
-                X, vocabulary = vectorize_sklearn(state, categories, flag, city)
-                save_pickle(X, 'tfidf/%s/%s/%s.mtx' % (flag, state, city))
-                np.savez_compressed('tfidf/%s/%s/%s-meta' % (flag, state, city),
-                                    categories=categories, vocabulary=vocabulary)
-                print(state + ' ' + city + ' finished!')
-    else:
-        print('unknown flag')
+        X, vocabulary = vectorize_sklearn(flag)
+        save_pickle(X, 'tfidf/%s.mtx' % flag)
+
+        document_names = prepare_document_names(flag)
+        np.savez_compressed('tfidf/%s-features' % flag, document_names=document_names, vocabulary=vocabulary)
+        print(flag+' finished!')
 
 
 def check_non_empty(state, city):
@@ -357,6 +379,9 @@ def save_cities():
     candidate_cities = non_empty_cities()
     np.savez_compressed('tfidf/city-meta', all_cities=candidate_cities)
 
+def save_categries():
+    np.savez_compressed('tfidf/category-meta', categories_of_state=categories_of_state, categories_of_city=categories_of_city)
+
 
 if __name__ == '__main__':
     # categories = ('Sushi Bars',
@@ -364,12 +389,14 @@ if __name__ == '__main__':
     #               'Dance Clubs')
     # create_all_documents(flag='state')
     # create_all_documents(flag='city')
-    # compute_and_save('state')
-    compute_and_save('city')
+    #compute_and_save('state')
+    #compute_and_save('city')
+    save_categries()
     #save_states()
     #save_cities()
 
     print('Y')
+
     # check_non_empty('PA', 'West Norriton')
 
     #print(categories_of_city['IL']['Chicago'])
