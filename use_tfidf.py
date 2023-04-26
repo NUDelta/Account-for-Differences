@@ -2,6 +2,7 @@ import pickle
 import re
 import numpy as np
 from nltk.stem import PorterStemmer
+import pandas as pd
 
 
 def preprocessor(text):
@@ -114,15 +115,16 @@ def retrieve_score_(filepath, words, catToIndex, wordToIndex, matrix):
     word_list = re.findall(r"[A-Za-z'-]+", words)
 
     if filepath not in catToIndex:
-        print("filepath doesn't exist: "+filepath)
+        # print("filepath doesn't exist: "+filepath)
         return -1
 
     x = catToIndex[filepath]
 
     for word in word_list:
         if word not in wordToIndex:
-            print("word doesn't exist: "+word)
-            return -2
+            # print("word doesn't exist: "+word)
+            # return -2
+            continue
 
         y = wordToIndex[word]
         phrase_score += matrix[x, y]
@@ -146,119 +148,145 @@ def retrieve_score(words, cat, state, flag='state', city=None):
         return retrieve_score_(filepath, words, catToIndex_city, wordToIndex_city, matrix_city)
 
 
-def get_top_k(word, k, state, flag='state', city=None):
-    """
-    get top k related categories for a given word and a given state or city
-    """
+def get_top_k(words, k, cats, state, flag='state', city=None):
+    '''
+    input a string of words and return the top k categories that are most related to the words
+    '''
+    if flag == 'state':
+        catToIndex, wordToIndex, matrix = catToIndex_state, wordToIndex_state, matrix_state
+    if flag == 'city':
+        catToIndex, wordToIndex, matrix = catToIndex_city, wordToIndex_city, matrix_city
+    
     scores = []
-    catToIndex, wordToIndex, matrix = read_data(flag)
-    for cat in catToIndex.keys():
-        score = retrieve_score_(cat, word, catToIndex, wordToIndex, matrix, flag, city)
+    for cat in cats:
+        score = retrieve_score(words, cat, state)
         scores.append((cat, score))
-
+    
     scores.sort(key=lambda x: x[1], reverse=True)
-
-    # store the top k categories with their scores to a csv file
-    with open('top_k.csv', 'w') as f:
-        for i in range(k):
-            if i < len(scores):
-                f.write('%s,%s\n' % (scores[i][0], scores[i][1]))
-
     return scores[:k]
+
+    # # store the top k categories with their scores to a csv file
+    # with open('top_k.csv', 'w') as f:
+    #     for i in range(k):
+    #         if i < len(scores):
+    #             f.write('%s,%s\n' % (scores[i][0], scores[i][1]))
+
+
+
+# data distribution
+def get_data_distribution():
+    # 1.1 get total number of states
+    states = list(load_states())
+
+    #1.2 get cats for each state
+    state_cats, city_cats = load_categories()
+    state_cats = state_cats.item()
+
+    # 1.3 create a dataframe has state, state_cat, number of cats in each state
+    df = pd.DataFrame(columns=['state', 'state_cat', 'num_cats'])
+    for state, cats in state_cats.items():
+        df.loc[len(df.index)] = [state, cats, len(cats)]
+    
+    # 1.4 save the dataframe to csv
+    df.to_csv('state_cat.csv', index=False)
+
+    # 1.5 
+    print('-'*20)
+    # print the number of states
+    print('number of states: ', len(states))
+    # print the state with the most categories, and print how many categories it has
+    # print('state with the most categories: ', df[df['num_cats'] == df['num_cats'].max()]['state'].values[0])
+    # print('number of categories: ', df[df['num_cats'] == df['num_cats'].max()]['num_cats'].values[0])
+    print('state with the most categories: ', df.sort_values(by='num_cats', ascending=False).head(5))
+
+    # print the state with the least categories, and print how many categories it has
+    print('state with the least categories: ', df[df['num_cats'] == df['num_cats'].min()]['state'].values[0])
+    print('number of categories: ', df[df['num_cats'] == df['num_cats'].min()]['num_cats'].values[0])
+
+    # 2.1 get total number of cats 
+    cats = set()
+    for state, state_cat in state_cats.items():
+        cats = cats.union(state_cat)
+    
+    # 2.2 get states for each cat
+    cat_states = {}
+    for cat in cats:
+        cat_states[cat] = []
+        for state, state_cat in state_cats.items():
+            if cat in state_cat:
+                cat_states[cat].append(state)
+
+    # 2.3 create a dataframe has cat, cat_state, number of states for each cat
+    df = pd.DataFrame(columns=['cat', 'cat_state', 'num_states'])
+    for cat, states in cat_states.items():
+        df.loc[len(df.index)] = [cat, states, len(states)]
+
+    # 2.4 save the dataframe to csv
+    df.to_csv('cat_state.csv', index=False)
+
+    # 2.5
+    print('-'*20)
+    # print the number of cats
+    print('number of cats: ', len(cats))
+    # print the cat with the most states, and print how many states it has
+    # print('cat with the most states: ', df[df['num_states'] == df['num_states'].max()]['cat'].values[0])
+    # print('number of states: ', df[df['num_states'] == df['num_states'].max()]['num_states'].values[0])
+    print('cat with the most states: ', df.sort_values(by='num_states', ascending=False).head(5))
+
+    # print the cat with the least states, and print how many states it has
+    print('cat with the least states: ', df[df['num_states'] == df['num_states'].min()]['cat'].values[0])
+    print('number of states: ', df[df['num_states'] == df['num_states'].min()]['num_states'].values[0])
+
+    return cats
+
+
 
 
 if __name__ == '__main__':
+    cats = get_data_distribution()
+
+    '''
+    1. State: FL, PA (since they have the most categories)
+    '''
+    testCases = [
+        'Food that make people fat',
+        'People get fat by',
+        'Food that are healthy for people',
+        'Food that cheers you up',
+
+        'Places to exhaust children',
+        'Places for a private conversation',
+        'Places to have a break up',
+        
+        'Fun things to do',
+        'Thing that make you homesick',
+        'Creepy experience',
+        'The moments when you feel safe',
+        'Wholesome weekend',
+        'Dress like a gentleman'
+    ]
+    
+    for testCase in testCases:
+        print('-'*20)
+        print('test case: ', testCase)
+        result_FL = get_top_k(testCase, 5, cats, 'FL')
+        result_PA = []
+        for cat, score in result_FL:
+            result_PA.append((cat, retrieve_score(testCase, cat, 'PA')))
+        df = pd.DataFrame(columns=['FL', 'PA', 'Diff'])
+        for i in range(len(result_FL)):
+            df.loc[len(df.index)] = [result_FL[i], result_PA[i], result_FL[i][1] - result_PA[i][1]]
+        print(df)
+        
 
     # c, w, m = read_data('AZ')
     # print(c.keys())
 
     #print(retrieve_score('fun', 'Restaurants', 'AZ'))
 
-    words = 'places to exhaust children'
+    # print(retrieve_score(words, 'Restaurants', 'AZ'))
+    # print(retrieve_score(words, 'Restaurants', 'CA', 'city', 'Goleta'))
 
-    print(retrieve_score(words, 'Restaurants', 'AZ'))
-    print(retrieve_score(words, 'Restaurants', 'CA', 'city', 'Goleta'))
-
-
-'''
-    case1 = [
-        ('fun','CA'),
-        ('fun','AZ'),
-        ('fun','TX'),
-        ('fun','IL'),
-        ('fun','PA'),
-        ('fun','MA'),
-    ]
-
-    case2 = [
-        ('fat food','CA'),
-        ('fat food','AZ'),
-        ('fat food','TX'),
-        ('fat food','IL'),
-        ('fat food','PA'),
-        ('fat food','MA'),
-    ]
-
-    case3 = [
-        ('healthy food','CA'),
-        ('healthy food','AZ'),
-        ('healthy food','TX'),
-        ('healthy food','IL'),
-        ('healthy food','PA'),
-        ('healthy food','MA'),
-    ]
-
-    case4 = [
-        ('danger','CA'),
-        ('danger','AZ'),
-        ('danger','TX'),
-        ('danger','IL'),
-        ('danger','PA'),
-        ('danger','MA'),
-    ]
-
-    case5 = [
-        ('private','CA'),
-        ('private','AZ'),
-        ('private','TX'),
-        ('private','IL'),
-        ('private','PA'),
-        ('private','MA'),  
-    ]
-
-    case6 = [
-        ('food','CA'),
-        ('food','AZ'),
-        ('food','TX'),
-        ('food','IL'),
-        ('food','PA'),
-        ('food','MA'),
-    ]
-
-    case7 = [
-        ('relax','CA'),
-        ('relax','AZ'),
-        ('relax','TX'),
-        ('relax','IL'),
-        ('relax','PA'),
-        ('relax','MA'),
-    ]
-
-    case8 = [
-        ('fat','CA'),
-        ('fat','AZ'),
-        ('fat','TX'),
-        ('fat','IL'),
-        ('fat','PA'),
-        ('fat','MA'),
-    ]
-
-    for case in case8:
-        print('=====================')
-        print(case)
-        print(get_top_k(case[0], 10, case[1]))
 
         # input('press enter to continue')
-'''
-
 
