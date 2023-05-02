@@ -3,6 +3,7 @@ import re
 import numpy as np
 from nltk.stem import PorterStemmer
 import pandas as pd
+from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
 
 
 def preprocessor(text):
@@ -13,6 +14,9 @@ def preprocessor(text):
 def stemmer(text):
     ps = PorterStemmer()
     return ps.stem(text)
+
+
+stop_words = [stemmer(i)[0] for i in ENGLISH_STOP_WORDS]
 
 
 def load_states():
@@ -121,7 +125,7 @@ def retrieve_score_(filepath, words, catToIndex, wordToIndex, matrix):
     x = catToIndex[filepath]
 
     for word in word_list:
-        if word not in wordToIndex:
+        if word in stop_words or word not in wordToIndex:
             # print("word doesn't exist: "+word)
             # return -2
             continue
@@ -240,8 +244,6 @@ def get_data_distribution():
     return cats
 
 
-
-
 if __name__ == '__main__':
     cats = get_data_distribution()
 
@@ -279,6 +281,7 @@ if __name__ == '__main__':
         print(df)
         
 
+
     # c, w, m = read_data('AZ')
     # print(c.keys())
 
@@ -286,7 +289,5 @@ if __name__ == '__main__':
 
     # print(retrieve_score(words, 'Restaurants', 'AZ'))
     # print(retrieve_score(words, 'Restaurants', 'CA', 'city', 'Goleta'))
-
-
-        # input('press enter to continue')
+    # input('press enter to continue')
 
