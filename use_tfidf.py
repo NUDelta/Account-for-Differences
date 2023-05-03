@@ -176,6 +176,27 @@ def get_top_k(words, k, cats, state, flag='state', city=None):
     #             f.write('%s,%s\n' % (scores[i][0], scores[i][1]))
 
 
+def getAll_desc(words, cats, state, flag='state', city=None):
+    if flag == 'state':
+        catToIndex, wordToIndex, matrix = catToIndex_state, wordToIndex_state, matrix_state
+    if flag == 'city':
+        catToIndex, wordToIndex, matrix = catToIndex_city, wordToIndex_city, matrix_city
+    
+    scores = []
+    for cat in cats:
+        score = retrieve_score(words, cat, state)
+        scores.append((cat, score))
+    
+    scores.sort(key=lambda x: x[1], reverse=True)
+
+    cat_rank_score = {}
+    for i in range(len(scores)):
+        cat, score = scores[i][0], scores[i][1]
+        if score == -1:
+            continue
+        cat_rank_score[cat] = (i+1, score)
+    return cat_rank_score
+
 
 # data distribution
 def get_data_distribution():
@@ -250,38 +271,68 @@ if __name__ == '__main__':
     '''
     1. State: FL, PA (since they have the most categories)
     '''
-    testCases = [
-        'Food that make people fat',
-        'People get fat by',
-        'Food that are healthy for people',
-        'Food that cheers you up',
+    # testCases = [
+    #     'Food that make people fat',
+    #     'People get fat by',
+    #     'Food that are healthy for people',
+    #     'Food that cheers you up',
 
-        'Places to exhaust children',
-        'Places for a private conversation',
-        'Places to have a break up',
+    #     'Places to exhaust children',
+    #     'Places for a private conversation',
+    #     'Places to have a break up',
         
-        'Fun things to do',
-        'Thing that make you homesick',
-        'Creepy experience',
-        'The moments when you feel safe',
-        'Wholesome weekend',
-        'Dress like a gentleman'
+    #     'Fun things to do',
+    #     'Thing that make you homesick',
+    #     'Creepy experience',
+    #     'The moments when you feel safe',
+    #     'Wholesome weekend',
+    #     'Dress like a gentleman'
+    # ]
+
+    testCases = [
+        'Where do families typically take their children to play in winter?'
     ]
-    
+
+    # run this query in FL
     for testCase in testCases:
         print('-'*20)
-        print('test case: ', testCase)
-        result_FL = get_top_k(testCase, 5, cats, 'FL')
-        result_PA = []
-        for cat, score in result_FL:
-            result_PA.append((cat, retrieve_score(testCase, cat, 'PA')))
-        df = pd.DataFrame(columns=['FL', 'PA', 'Diff'])
-        for i in range(len(result_FL)):
-            df.loc[len(df.index)] = [result_FL[i], result_PA[i], result_FL[i][1] - result_PA[i][1]]
-        print(df)
+        print('FL -- test case: ', testCase)
+        cat_rank_score_FL = getAll_desc(testCase, cats, 'FL')
+        # print(cat_rank_score_FL)
+        # save cat_rank_score_FL to csv
+        df = pd.DataFrame(columns=['cat', 'rank', 'score'])
+        for cat, rank_score in cat_rank_score_FL.items():
+            df.loc[len(df.index)] = [cat, rank_score[0], rank_score[1]]
+        df.to_csv('FL.csv', index=False)
+    
+    # run this query in PA
+    for testCase in testCases:
+        print('-'*20)
+        print('PA -- test case: ', testCase)
+        cat_rank_score_PA = getAll_desc(testCase, cats, 'PA')
+        # print(cat_rank_score_PA)
+        # save cat_rank_score_PA to csv
+        df = pd.DataFrame(columns=['cat', 'rank', 'score'])
+        for cat, rank_score in cat_rank_score_PA.items():
+            df.loc[len(df.index)] = [cat, rank_score[0], rank_score[1]]
+        df.to_csv('PA.csv', index=False)
         
 
 
+
+    
+    # for testCase in testCases:
+    #     print('-'*20)
+    #     print('test case: ', testCase)
+    #     result_FL = get_top_k(testCase, 10, cats, 'FL')
+    #     result_PA = []
+    #     for cat, score in result_FL:
+    #         result_PA.append((cat, retrieve_score(testCase, cat, 'PA')))
+    #     df = pd.DataFrame(columns=['FL', 'PA', 'Diff'])
+    #     for i in range(len(result_FL)):
+    #         df.loc[len(df.index)] = [result_FL[i], result_PA[i], result_FL[i][1] - result_PA[i][1]]
+    #     print(df)
+        
     # c, w, m = read_data('AZ')
     # print(c.keys())
 
