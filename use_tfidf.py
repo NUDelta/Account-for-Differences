@@ -4,6 +4,7 @@ import numpy as np
 from nltk.stem import PorterStemmer
 import pandas as pd
 from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
+import math
 
 
 def preprocessor(text):
@@ -126,13 +127,14 @@ def retrieve_score_(filepath, words, catToIndex, wordToIndex, matrix):
     retrieve the tf-idf score of a word in relation to a category when the matrix and mappings from names to indices are given
     """
 
-    phrase_score = 0.0
+    # phrase_score = 0.0      # adding all
+    phrase_score = 0.0     # multiplying all
     words = stemmer(preprocessor(words))
     word_list = re.findall(r"[A-Za-z'-]+", words)
 
     if filepath not in catToIndex:
         # print("filepath doesn't exist: "+filepath)
-        return -1
+        return "cat not found"
 
     x = catToIndex[filepath]
 
@@ -140,10 +142,12 @@ def retrieve_score_(filepath, words, catToIndex, wordToIndex, matrix):
         if word in stop_words or word not in wordToIndex:
             # print("word doesn't exist: "+word)
             # return -2
+            phrase_score *= 0.0
             continue
 
         y = wordToIndex[word]
-        phrase_score += matrix[x, y]
+        # phrase_score += matrix[x, y]    # adding all
+        phrase_score += math.log(matrix[x, y] + 10**(-6))    # multiplying all
     return phrase_score
 
 
@@ -197,6 +201,8 @@ def getAll_desc(words, cats, state, flag='state', city=None):
     scores = []
     for cat in cats:
         score = retrieve_score(words, cat, state)
+        if score == 'cat not found':
+            continue
         scores.append((cat, score))
     
     scores.sort(key=lambda x: x[1], reverse=True)
@@ -204,9 +210,11 @@ def getAll_desc(words, cats, state, flag='state', city=None):
     cat_rank_score = {}
     for i in range(len(scores)):
         cat, score = scores[i][0], scores[i][1]
-        if score == -1:
-            continue
+        # if score == -1:
+        #     continue
         cat_rank_score[cat] = (i+1, score)
+    
+    print('cat_rank_score: ', cat_rank_score)
     return cat_rank_score
 
 
@@ -216,7 +224,8 @@ def get_data_distribution():
     states = list(load_states())
 
     #1.2 get cats for each state
-    state_cats, city_cats = load_categories()
+    # state_cats, city_cats = load_categories()
+    state_cats, city_cats = load_good_categories()
     state_cats = state_cats.item()
 
     # 1.3 create a dataframe has state, state_cat, number of cats in each state
@@ -301,11 +310,29 @@ if __name__ == '__main__':
     #     'Dress like a gentleman'
     # ]
 
+
     testCases = [
         'Where do families typically take their children to play in winter?'
     ]
 
-    # run this query in FL
+    # expected answers for FL
+    expectedAns_FL = [
+        'beach',
+        'park',
+        'aquarium',
+        'zoo'
+    ]
+
+    # expected answers for PA
+    expectedAns_PA = [
+        'ski',
+        'skat',
+        'bik',
+        'museum',
+        'park'
+    ]
+
+    # run this query in FL and PA
     for testCase in testCases:
         print('-'*20)
         print('FL -- test case: ', testCase)
@@ -316,9 +343,7 @@ if __name__ == '__main__':
         for cat, rank_score in cat_rank_score_FL.items():
             df.loc[len(df.index)] = [cat, rank_score[0], rank_score[1]]
         df.to_csv('FL.csv', index=False)
-    
-    # run this query in PA
-    for testCase in testCases:
+
         print('-'*20)
         print('PA -- test case: ', testCase)
         cat_rank_score_PA = getAll_desc(testCase, cats, 'PA')
@@ -328,11 +353,110 @@ if __name__ == '__main__':
         for cat, rank_score in cat_rank_score_PA.items():
             df.loc[len(df.index)] = [cat, rank_score[0], rank_score[1]]
         df.to_csv('PA.csv', index=False)
-        
-
-
-
     
+    
+        count = 0
+        result_FL = {'beach':[], 'park':[], 'aquarium':[], 'zoo':[]}
+        for cat, rank_score in cat_rank_score_FL.items():
+            for ans in expectedAns_FL:
+                if ans in cat.lower():
+                    result_FL[ans].append([cat, rank_score[0], rank_score[1]])
+                    count += 1
+    
+        # save result_FL to csv
+        df_FL = pd.DataFrame(columns=['expected ans', 'cat', 'rank', 'score'])
+        for ans, cat_rank_score in result_FL.items():
+            for each in cat_rank_score:
+                df_FL.loc[len(df_FL.index)] = [ans, each[0], each[1], each[2]]
+
+        df_FL.to_csv('FL_expected.csv', index=False)
+        # print(result_FL)
+        print('FL -- number of expected answers: ', count)
+
+
+        count = 0
+        result_PA = {'ski':[], 'skat':[], 'bik':[], 'museum':[], 'park':[]}
+        for cat, rank_score in cat_rank_score_PA.items():
+            for ans in expectedAns_PA:
+                if ans in cat.lower():
+                    result_PA[ans].append([cat, rank_score[0], rank_score[1]])
+                    count += 1
+    
+        # save result_PA to csv
+        df_PA = pd.DataFrame(columns=['expected ans', 'cat', 'rank', 'score'])
+        for ans, cat_rank_score in result_PA.items():
+            for each in cat_rank_score:
+                df_PA.loc[len(df_PA.index)] = [ans, each[0], each[1], each[2]]
+    
+        df_PA.to_csv('PA_expected.csv', index=False)
+        # print(result_PA)
+        print('PA -- number of expected answers: ', count)
+
+
+        '''
+        expected answers across states
+        '''
+        # FL vs. PA
+        # get cat and score from df_FL
+        df_FL_PA = df_FL[['cat', 'score']]
+        # loop rows in df_FL_PA
+        for index, row in df_FL_PA.iterrows():
+            # get cat and score
+            cat = row['cat']
+            score_FL = row['score']
+            # get score_PA
+            score_PA = diff = diff_percent = 0
+            if cat not in cat_rank_score_PA:
+                score_PA = diff = diff_percent = -1
+            else:
+                score_PA = cat_rank_score_PA[cat][1]
+                diff = score_FL - score_PA
+                diff_percent = diff / score_FL
+
+            # add diff to df_FL_PA
+            df_FL_PA.loc[index, 'score_PA'] = round(score_PA, 4)
+            df_FL_PA.loc[index, 'diff_percent'] = str(round(diff_percent * 100, 2)) + '%'
+            df_FL_PA.loc[index, 'diff'] = round(diff, 4)
+
+            # change the column name score to score_FL
+            df_FL_PA.rename(columns={'score': 'score_FL'}, inplace=True)
+            df_FL_PA.loc[index, 'score_FL'] = round(score_FL, 4)
+
+        # save df_FL_PA to csv
+        df_FL_PA.to_csv('FL_PA.csv', index=False)
+
+
+        # PA vs. FL
+        # get cat and score from df_PA
+        df_PA_FL = df_PA[['cat', 'score']]
+        # loop rows in df_PA_FL
+        for index, row in df_PA_FL.iterrows():
+            # get cat and score
+            cat = row['cat']
+            score_PA = row['score']
+            # get score_FL
+            score_FL = diff = diff_percent = 0
+            if cat not in cat_rank_score_FL:
+                score_FL = diff = diff_percent = -1
+            else:
+                score_FL = cat_rank_score_FL[cat][1]
+                diff = score_PA - score_FL
+                diff_percent = diff / score_PA
+
+            # add diff to df_PA_FL
+            df_PA_FL.loc[index, 'score_FL'] = round(score_FL, 4)
+            df_PA_FL.loc[index, 'diff_percent'] = str(round(diff_percent * 100, 2)) + '%'
+            df_PA_FL.loc[index, 'diff'] = round(diff, 4)
+
+            # change the column name score to score_PA
+            df_PA_FL.rename(columns={'score': 'score_PA'}, inplace=True)
+            df_PA_FL.loc[index, 'score_PA'] = round(score_PA, 4)
+        
+        # save df_PA_FL to csv
+        df_PA_FL.to_csv('PA_FL.csv', index=False)
+
+
+
     # for testCase in testCases:
     #     print('-'*20)
     #     print('test case: ', testCase)
