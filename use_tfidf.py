@@ -55,6 +55,18 @@ def load_categories():
     return loaded['categories_of_state'], loaded['categories_of_city']
 
 
+def load_good_categories():
+    """
+    Returns
+    dict[state]: a list of good categories of that state
+    dict[state][city]: a list of good categories of that city
+    -------
+
+    """
+    loaded = np.load('tfidf/good-category-meta.npz', allow_pickle=True)
+    return loaded['good_categories_of_state'], loaded['good_categories_of_city']
+
+
 def cat2doc(state, cat, flag='state', city=None):
     """CA, Goleta, Sushi Bars -> reviewtext/city/CA/Goleta/SushiBars.txt
     From state,cat,(city) to Document filepath """

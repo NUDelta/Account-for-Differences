@@ -1,7 +1,7 @@
 # Adapted from
 # https://github.com/youralien/affinder-search/blob/4dd427c98c98533b0550c3d484fba55d75f39818/yelp_academic_etl_training.py
 # Author youralien
-
+import math
 import os
 import string
 import re
@@ -11,6 +11,8 @@ import pickle
 import pymysql.cursors
 from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS, TfidfVectorizer
 from nltk.stem import PorterStemmer
+import matplotlib.pyplot as plt
+from collections import Counter
 
 
 def all_states():
@@ -370,6 +372,80 @@ def non_empty_cities():
     return new_dict
 
 
+def get_review_distribution():
+    states = all_states()
+
+    size_list = []
+    for state in states:
+        my_path = "reviewtext/state/%s" % state
+        for file in os.listdir(my_path):
+            if file.endswith(".txt"):
+                text_path = os.path.join(my_path, file)
+                size_list.append(int(os.path.getsize(text_path)/6))
+
+    log_size = [int(math.log10(e)) for e in size_list]
+    C = Counter(log_size)
+    plt.bar(C.keys(), C.values())
+    plt.title('distribution of review size (state)')
+    plt.xlabel("log10 word count")
+    plt.ylabel("file count")
+    plt.show()
+
+    size_list = []
+    cities_dict = non_empty_cities()
+    for state in states:
+        cities = cities_dict[state]
+        for city in cities:
+            my_path = "reviewtext/city/%s/%s" % (state, city.replace('/', '-'))
+            for file in os.listdir(my_path):
+                if file.endswith(".txt"):
+                    text_path = os.path.join(my_path, file)
+                    size_list.append((int(os.path.getsize(text_path)+1) / 6))
+
+    log_size = [int(math.log10(e)) for e in size_list]
+    C2 = Counter(log_size)
+    plt.bar(C2.keys(), C2.values())
+    plt.title('distribution of review size (city)')
+    plt.xlabel("log10 word count")
+    plt.ylabel("file count")
+    plt.show()
+
+
+def is_good_category(path,threshold=1000):
+    return os.path.getsize(path) > threshold*6
+
+
+def get_categories_with_enough_reviews():
+    states = all_states()
+    cities_dict = non_empty_cities()
+    good_categories_state = {}
+    good_categories_city = {}
+    for state in states:
+        good_categories_state[state] = [cat for cat in categories_of_state[state] if is_good_category(cat2doc(state, cat))]
+
+    for state in states:
+        temp_dict = {}
+        for city in cities_dict[state]:
+            temp_dict[city] = [cat for cat in categories_of_city[state][city] if is_good_category(cat2doc(state, cat, 'city', city))]
+        good_categories_city[state] = temp_dict
+
+    '''
+    size_list = []
+    for state in states:
+        for cat in good_categories_state[state]:
+            size_list.append(int(os.path.getsize(cat2doc(state, cat)))/6)
+
+    log_size = [int(math.log10(e)) for e in size_list]
+    C = Counter(log_size)
+    plt.bar(C.keys(), C.values())
+    plt.title('distribution of review size (state)')
+    plt.xlabel("log10 word count")
+    plt.ylabel("file count")
+    plt.show()
+    '''
+    return good_categories_state, good_categories_city
+
+
 def save_states():
     states = all_states()
     np.savez_compressed('tfidf/state-meta', states=states)
@@ -379,8 +455,15 @@ def save_cities():
     candidate_cities = non_empty_cities()
     np.savez_compressed('tfidf/city-meta', all_cities=candidate_cities)
 
-def save_categries():
+
+def save_categories():
     np.savez_compressed('tfidf/category-meta', categories_of_state=categories_of_state, categories_of_city=categories_of_city)
+
+
+def save_good_categories():
+    good_categories_state, good_categories_city = get_categories_with_enough_reviews()
+    np.savez_compressed('tfidf/good-category-meta', good_categories_of_state=good_categories_state,
+                        good_categories_of_city=good_categories_city)
 
 
 if __name__ == '__main__':
@@ -391,12 +474,13 @@ if __name__ == '__main__':
     # create_all_documents(flag='city')
     #compute_and_save('state')
     #compute_and_save('city')
-    save_categries()
+    #save_categries()
     #save_states()
     #save_cities()
-
+    #get_review_distribution()
+    #get_categories_with_enough_reviews()
+    save_good_categories()
     print('Y')
 
     # check_non_empty('PA', 'West Norriton')
-
     #print(categories_of_city['IL']['Chicago'])

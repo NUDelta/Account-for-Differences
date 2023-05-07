@@ -2,28 +2,60 @@ import re
 import io
 import string
 import pymysql.cursors
+from nltk.stem import PorterStemmer
+from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
+
+def preprocessor(text):
+    pattern = r"[^A-Za-z\s'-]+"
+    return stemmer(re.sub(pattern, "", text))
 
 
-def get_review_sentence(word, cat, state, flag='state', city=None):
+def stemmer(text):
+    ps = PorterStemmer()
+    return ps.stem(text)
+
+
+stop_words = [stemmer(i)[0] for i in ENGLISH_STOP_WORDS]
+
+def words_to_input(words):
+    words = stemmer(preprocessor(words))
+    temp_list = re.findall(r"[A-Za-z'-]+", words)
+    word_list = []
+    for word in temp_list:
+        if word in stop_words:
+            continue
+        word_list.append(word.lower())
+    return word_list
+
+def words_in_text(word_list, sentence):
+    for word in word_list:
+        if word not in sentence:
+            return False
+    return True
+
+
+
+def get_review_sentence(words, cat, state, flag='state', city=None):
+
+    word_list = words_to_input(words)
     path = cat2doc(state, cat, flag, city)
     pattern = r'[\.?!]'
-    first_cap = word.capitalize()
-    all_cap = word.upper()
+    #first_cap = word.capitalize()
+    #all_cap = word.upper()
     results = []
 
     with io.open(path)as f:
-        text = f.read()
+        text = f.read().lower()
         sentences = re.split(pattern, text)
         for sentence in sentences:
-            if word in sentence or first_cap in sentence or all_cap in sentence:
+            if words_in_text(word_list, sentence):
                 results.append(sentence)
 
     return results
 
 
-def get_review_exact_match(word, cat, state, flag='state', city=None):
-    first_cap = word.capitalize()
-    all_cap = word.upper()
+def get_review_exact_match(words, cat, state, flag='state', city=None):
+    word_list = words_to_input(words)
     results = []
 
     connection = pymysql.connect(host='localhost',
@@ -75,7 +107,7 @@ def get_review_exact_match(word, cat, state, flag='state', city=None):
         cursor.execute(query, cat)
 
     for text, in cursor:
-        if word in text or first_cap in text or all_cap in text:
+        if words_in_text(word_list, stemmer(preprocessor(text.lower()))):
             results.append(text)
 
     return results
@@ -102,7 +134,15 @@ if __name__ == '__main__':
         print(l)
     '''
 
-    rs = get_review_exact_match('private', 'Speakeasies', 'FL')
+    '''
+   
+    rs = get_review_exact_match('play', 'Mobile Home Dealers', 'FL')
+    for r in rs:
+        print(r)
+
+     '''
+
+    rs = get_review_sentence('winter', 'Financial Services', 'FL')
     for r in rs:
         print(r)
 
