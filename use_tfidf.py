@@ -373,7 +373,6 @@ if __name__ == '__main__':
         # print(result_FL)
         print('FL -- number of expected answers: ', count)
 
-
         count = 0
         result_PA = {'ski':[], 'skat':[], 'bik':[], 'museum':[], 'park':[]}
         for cat, rank_score in cat_rank_score_PA.items():
