@@ -56,7 +56,7 @@ def load_categories():
     return loaded['categories_of_state'], loaded['categories_of_city']
 
 
-def load_good_categories():
+def load_good_categories(threshold=1000):
     """
     Returns
     dict[state]: a list of good categories of that state
@@ -64,7 +64,7 @@ def load_good_categories():
     -------
 
     """
-    loaded = np.load('tfidf/good-category-meta.npz', allow_pickle=True)
+    loaded = np.load('tfidf/good-category-meta-%d.npz' % threshold, allow_pickle=True)
     return loaded['good_categories_of_state'], loaded['good_categories_of_city']
 
 
@@ -83,7 +83,7 @@ def cat2doc(state, cat, flag='state', city=None):
 
 
 
-def read_data(flag='state'):
+def read_data(flag='state', threshold=1000):
     """
     given a state (and a city), load the related tf-idf matrix, filepaths and vocabulary
     where the filepaths are the row names and vocabulary contains the row names of the tf-idf matrix
@@ -93,11 +93,15 @@ def read_data(flag='state'):
 
     """
 
-    with open('tfidf/%s.mtx' % flag, 'rb') as f:
+    dir_path = 'tfidf/matrix_%s_%d/' % (flag, threshold)
+    matrix_path = dir_path + '%s.mtx' % flag
+    features_path = dir_path + '%s-features.npz' % flag
+
+    with open(matrix_path, 'rb') as f:
         matrix = pickle.load(f)
         # matrix = matrix.todense()
 
-    loaded = np.load('tfidf/%s-features.npz' % flag, allow_pickle=True)
+    loaded = np.load(features_path, allow_pickle=True)
 
     # categories is a list of column names of the tf-idf matrix
     categories = loaded['document_names']

@@ -222,35 +222,12 @@ def document_text_iterator(state, categories, flag='state', city=None):
         with io.open(filepath, 'r', encoding='utf8') as f:
             yield f.read()
 
-
-def document_iterator(state, categories, flag='state', city=None):
-    for filepath in cats2docs(state, categories, flag, city):
-        yield filepath
-
-
-def document_iterator_super(flag='state'):
-    if flag == 'states':
-        states = all_states()
-        for state in states:
-            categories = categories_of_state[state]
-            document_iterator(state, categories, flag)
-
-    if flag == 'city':
-        states = all_states()
-        candidate_cities = non_empty_cities()
-        for state in states:
-            cites = candidate_cities[state]
-            for city in cites:
-                categories = categories_of_city[state][city]
-                document_iterator(state, categories, flag, city)
-
-
-def prepare_document_names(flag='state'):
+def prepare_document_names(cat_of_setting, flag='state'):
     result = []
     if flag == 'state':
         states = all_states()
         for state in states:
-            categories = categories_of_state[state]
+            categories = cat_of_setting[state]
             for filepath in cats2docs(state, categories, flag):
                 result.append(filepath)
 
@@ -260,8 +237,8 @@ def prepare_document_names(flag='state'):
         for state in states:
             cites = candidate_cities[state]
             for city in cites:
-                categories = categories_of_city[state][city]
-                for filepath in cats2docs(state, categories, flag,city):
+                categories = cat_of_setting[state][city]
+                for filepath in cats2docs(state, categories, flag, city):
                     result.append(filepath)
 
     return result
@@ -326,11 +303,11 @@ def create_all_documents(flag='state'):
     sql2txt(states, flag)
 
 
-def vectorize_sklearn(flag='state'):
+def vectorize_sklearn(cats_of_setting, flag='state'):
     # should I use the vocabulary from something like fasttext?
     vect = TfidfVectorizer(input='filename', preprocessor=preprocessor, tokenizer=None,
                            vocabulary=None, token_pattern=r"[A-Za-z'-]+", stop_words=stop_words)
-    document_names = prepare_document_names(flag)
+    document_names = prepare_document_names(cats_of_setting, flag)
     X = vect.fit_transform(document_names)
     vocabulary = vect.get_feature_names_out()
     return X, vocabulary
@@ -341,14 +318,20 @@ def save_pickle(matrix, filename):
         pickle.dump(matrix, outfile, pickle.HIGHEST_PROTOCOL)
 
 
-def compute_and_save(flag='state'):
+def compute_and_save(threshold=1000, flag='state'):
 
-        X, vocabulary = vectorize_sklearn(flag)
-        save_pickle(X, 'tfidf/%s.mtx' % flag)
+    dir_path = 'tfidf/matrix_%s_%d/' % (flag, threshold)
+    matrix_path = dir_path + '%s.mtx' % flag
+    features_path = dir_path + '%s-features' % flag
 
-        document_names = prepare_document_names(flag)
-        np.savez_compressed('tfidf/%s-features' % flag, document_names=document_names, vocabulary=vocabulary)
-        print(flag+' finished!')
+    states_filtered, cities_filtered = get_categories_with_enough_reviews(threshold)
+    cats_of_setting = states_filtered if flag == 'state' else cities_filtered
+    X, vocabulary = vectorize_sklearn(cats_of_setting, flag)
+    save_pickle(X, matrix_path)
+
+    document_names = prepare_document_names(cats_of_setting, flag)
+    np.savez_compressed(features_path, document_names=document_names, vocabulary=vocabulary)
+    print(flag+' finished!')
 
 
 def check_non_empty(state, city):
@@ -383,6 +366,15 @@ def get_review_distribution():
                 text_path = os.path.join(my_path, file)
                 size_list.append(int(os.path.getsize(text_path)/6))
 
+    print('median', np.median(size_list))
+    print('upper', np.percentile(size_list, 75))
+    print('lower', np.percentile(size_list, 25))
+
+    log_size = [math.log10(e) for e in size_list]
+    plt.boxplot(log_size)
+    plt.show()
+    '''
+    
     log_size = [int(math.log10(e)) for e in size_list]
     C = Counter(log_size)
     plt.bar(C.keys(), C.values())
@@ -390,6 +382,7 @@ def get_review_distribution():
     plt.xlabel("log10 word count")
     plt.ylabel("file count")
     plt.show()
+    '''
 
     size_list = []
     cities_dict = non_empty_cities()
@@ -401,32 +394,40 @@ def get_review_distribution():
                 if file.endswith(".txt"):
                     text_path = os.path.join(my_path, file)
                     size_list.append((int(os.path.getsize(text_path)+1) / 6))
+    print('median', np.median(size_list))
+    print('upper', np.percentile(size_list, 75))
+    print('lower', np.percentile(size_list, 25))
+    log_size = [math.log10(e) for e in size_list]
+    plt.boxplot(log_size)
+    plt.show()
 
-    log_size = [int(math.log10(e)) for e in size_list]
+
+    '''
     C2 = Counter(log_size)
     plt.bar(C2.keys(), C2.values())
     plt.title('distribution of review size (city)')
     plt.xlabel("log10 word count")
     plt.ylabel("file count")
     plt.show()
+    '''
 
 
 def is_good_category(path,threshold=1000):
     return os.path.getsize(path) > threshold*6
 
 
-def get_categories_with_enough_reviews():
+def get_categories_with_enough_reviews(threshold=1000):
     states = all_states()
     cities_dict = non_empty_cities()
     good_categories_state = {}
     good_categories_city = {}
     for state in states:
-        good_categories_state[state] = [cat for cat in categories_of_state[state] if is_good_category(cat2doc(state, cat))]
+        good_categories_state[state] = [cat for cat in categories_of_state[state] if is_good_category(cat2doc(state, cat),threshold)]
 
     for state in states:
         temp_dict = {}
         for city in cities_dict[state]:
-            temp_dict[city] = [cat for cat in categories_of_city[state][city] if is_good_category(cat2doc(state, cat, 'city', city))]
+            temp_dict[city] = [cat for cat in categories_of_city[state][city] if is_good_category(cat2doc(state, cat, 'city', city),threshold)]
         good_categories_city[state] = temp_dict
 
     '''
@@ -460,9 +461,10 @@ def save_categories():
     np.savez_compressed('tfidf/category-meta', categories_of_state=categories_of_state, categories_of_city=categories_of_city)
 
 
-def save_good_categories():
-    good_categories_state, good_categories_city = get_categories_with_enough_reviews()
-    np.savez_compressed('tfidf/good-category-meta', good_categories_of_state=good_categories_state,
+def save_good_categories(threshold=1000):
+    file_name = f'tfidf/good-category-meta-%d' % threshold
+    good_categories_state, good_categories_city = get_categories_with_enough_reviews(threshold)
+    np.savez_compressed(file_name, good_categories_of_state=good_categories_state,
                         good_categories_of_city=good_categories_city)
 
 
@@ -479,7 +481,10 @@ if __name__ == '__main__':
     #save_cities()
     #get_review_distribution()
     #get_categories_with_enough_reviews()
-    save_good_categories()
+    #save_good_categories(3719)
+    #save_good_categories()
+    compute_and_save(1000, 'state')
+
     print('Y')
 
     # check_non_empty('PA', 'West Norriton')
