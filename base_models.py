@@ -483,9 +483,11 @@ if __name__ == '__main__':
     #get_categories_with_enough_reviews()
     #save_good_categories(3719)
     #save_good_categories()
-    compute_and_save(1000, 'state')
-
-    print('Y')
+    #compute_and_save(1000, 'state')
+    #compute_and_save(1000, 'city')
+    compute_and_save(0, 'state')
+    #print('Y')
 
     # check_non_empty('PA', 'West Norriton')
     #print(categories_of_city['IL']['Chicago'])
+

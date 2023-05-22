@@ -18,7 +18,7 @@ def stemmer(text):
 stop_words = [stemmer(i)[0] for i in ENGLISH_STOP_WORDS]
 
 def words_to_input(words):
-    words = stemmer(preprocessor(words))
+    words = preprocessor(words)
     temp_list = re.findall(r"[A-Za-z'-]+", words)
     word_list = []
     for word in temp_list:
@@ -142,7 +142,7 @@ if __name__ == '__main__':
 
      '''
 
-    rs = get_review_sentence('winter', 'Financial Services', 'FL')
+    rs = get_review_exact_match('winter', 'Indoor Playcentre', 'FL')
     for r in rs:
         print(r)
 

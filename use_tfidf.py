@@ -18,7 +18,7 @@ def stemmer(text):
     return ps.stem(text)
 
 
-stop_words = [stemmer(i)[0] for i in ENGLISH_STOP_WORDS]
+stop_words = [preprocessor(i) for i in ENGLISH_STOP_WORDS]
 
 
 def load_states():
@@ -143,7 +143,7 @@ def retrieve_score_(filepath, words, catToIndex, wordToIndex, matrix):
 
     # phrase_score = 0.0      # adding all
     phrase_score = 0.0     # multiplying all
-    words = stemmer(preprocessor(words))
+    words = preprocessor(words)
     word_list = re.findall(r"[A-Za-z'-]+", words)
 
     if filepath not in catToIndex:
@@ -154,13 +154,15 @@ def retrieve_score_(filepath, words, catToIndex, wordToIndex, matrix):
 
     for word in word_list:
         if word in stop_words:
+            print(word, 'is a stop word')
             continue
         if word not in wordToIndex:
             # print("word doesn't exist: "+word)
             # return -2
             phrase_score *= 0.0
+            print(word, "doesn't exist")
             continue
-
+        print(word, phrase_score)
         y = wordToIndex[word]
         # phrase_score += matrix[x, y]    # adding all
         phrase_score += math.log(matrix[x, y] + 10**(-6))    # multiplying all
@@ -619,6 +621,8 @@ if __name__ == '__main__':
     # path = 'results/filter3719+good3719/FL_PA/'
     # compare_two_states_100(path, 'FL', 'PA')
     # compare_expected(path, 'FL', 'PA')
+    retrieve_score("Where do families typically take their children to play in winter?",'Indoor Playcentre', 'FL')
+    print('-'*100)
 
     '''
     1. get data distribution
