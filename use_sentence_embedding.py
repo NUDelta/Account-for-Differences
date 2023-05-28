@@ -104,4 +104,10 @@ if __name__ == '__main__':
 
     # print(retrieve_score('Where do families typically take their children to play in winter?', 'Beaches', 'FL')) 0.12
     # print(retrieve_score('Where do families typically take their children to play in winter?', 'Mobile home Dealers', 'FL')) 0.05
+
+
+    # print(retrieve_score('Where do families typically take their children to play in winter?', 'Ski & Snowboard Shops', 'PA')) 0.086614065
+    # print(retrieve_score('Where do families typically take their children to play in winter?', 'Ski Resorts','PA')) 0.12331266
+    # print(retrieve_score('Where do families typically take their children to play in winter?', 'Skilled Nursing', 'PA')) 0.0588
+    print(retrieve_score('Where do families typically take their children to play in winter?', 'Zoos', 'PA'))
     print('Y')
