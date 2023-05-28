@@ -302,7 +302,7 @@ def get_data_distribution():
 
 
 def get_cats_city(state1, state2, city1, city2):
-    state_cats, city_cats = load_good_categories()
+    state_cats, city_cats = load_good_categories(threshold=1000)
     city_cats = city_cats.item()
     city1_cats = city_cats[state1][city1]
     city2_cats = city_cats[state2][city2]
@@ -720,6 +720,17 @@ if __name__ == '__main__':
     # compare_two_states('LA', expectedCats_No, 'CA', expectedCats_SB)
 
 
+    '''
+    for interface
+    '''
+    # ask user to input a question
+    
+    
+
+
+
+
+
 
 
     # for testCase in testCases:
@@ -761,5 +772,14 @@ if __name__ == '__main__':
     #     'Wholesome weekend',
     #     'Dress like a gentleman'
     # ]
+
+testCase = 'Where do families typically take their children to play in winter?'
+state = 'FL'
+cats = ['Drive-In Theater', 'Virtual Reality Centers', 'Shared Office Spaces', 
+        'Real Estate Law', 'Race Tracks', 'Tabletop Games', 'Pool & Billiards', 
+        'Occupational Therapy', 'Themed Cafes', 'Pop-up Shops']
+retrieve_score(testCase, cats, state, flag='state', city=None)
+
+
 
     
