@@ -146,15 +146,17 @@ def retrieve_score_(filepath, words, catToIndex, wordToIndex, matrix):
     words = preprocessor(words)
     word_list = re.findall(r"[A-Za-z'-]+", words)
 
+    word_score_dict = {}
+
     if filepath not in catToIndex:
         # print("filepath doesn't exist: "+filepath)
-        return "cat not found"
+        return "cat not found", word_score_dict
 
     x = catToIndex[filepath]
 
     for word in word_list:
         if word in stop_words:
-            print(word, 'is a stop word')
+            # print(word, 'is a stop word')
             continue
         if word not in wordToIndex:
             # print("word doesn't exist: "+word)
@@ -162,13 +164,17 @@ def retrieve_score_(filepath, words, catToIndex, wordToIndex, matrix):
             phrase_score *= 0.0
             print(word, "doesn't exist")
             continue
-        print(word, phrase_score)
+    
+
         y = wordToIndex[word]
+        word_score = math.log(matrix[x, y] + 10**(-6))
         # phrase_score += matrix[x, y]    # adding all
-        phrase_score += math.log(matrix[x, y] + 10**(-6))    # multiplying all
+        phrase_score += word_score    # multiplying all
+        word_score_dict[word] = word_score
 
-    return phrase_score
-
+    # print('phrase_score: ', phrase_score)
+    # print('word_score_dict: ', word_score_dict)
+    return phrase_score, word_score_dict
 
 
 def retrieve_score(words, cat, state, flag='state', city=None):
@@ -217,22 +223,34 @@ def getAll_desc(words, cats, state, flag='state', city=None):
     for cat in cats:
         # print('-'*20)
         # print('cat: ', cat)
-        score = retrieve_score(words, cat, state, flag, city)
+        score, word_scores = retrieve_score(words, cat, state, flag, city)
         if score == 'cat not found':
             continue
         # print('score: ', score)
-        scores.append((cat, score))
+        scores.append((cat, score, word_scores))
     
-    scores.sort(key=lambda x: x[1], reverse=True)
-
-    cat_rank_score = {}
+    # initialize a dataframe
+    df = pd.DataFrame(columns=['rank', 'cat', 'score'] + list(scores[0][2].keys()))
     for i in range(len(scores)):
-        cat, score = scores[i][0], scores[i][1]
-        # if score == -1:
-        #     continue
-        cat_rank_score[cat] = (i+1, score)
+        cat, score, word_scores = scores[i][0], scores[i][1], scores[i][2]
+        df.loc[len(df)] = [0, cat, score] + list(word_scores.values())
     
-    return cat_rank_score
+    # rank the categories by their scores, and update rank
+    df.sort_values(by=['score'], ascending=False, inplace=True)
+    df['rank'] = range(1, len(df)+1)
+    df.reset_index(drop=True, inplace=True)
+    return df
+
+    # scores.sort(key=lambda x: x[1], reverse=True)
+
+    # cat_rank_score = {}
+    # for i in range(len(scores)):
+    #     cat, score = scores[i][0], scores[i][1]
+    #     # if score == -1:
+    #     #     continue
+    #     cat_rank_score[cat] = (i+1, score)
+    
+    # return cat_rank_score
 
 
 # data distribution
@@ -351,7 +369,7 @@ def generated_vs_expected(stateName, threshold):
         else:
             plt.axvline(x=df_expected.iloc[i]['rank'], color='r', linestyle='--', label="out of top "+str(threshold))
             # put the label on the top of the line
-            plt.text(df_expected.iloc[i]['rank'], -100, df_expected.iloc[i]['cat'], rotation=45)
+            plt.text(df_expected.iloc[i]['rank'], int(df['score'].min()), df_expected.iloc[i]['cat'], rotation=45)
 
     plt.title(stateName)
     plt.xlabel('rank')
@@ -363,18 +381,35 @@ def generated_vs_expected(stateName, threshold):
     
 
 def expected_generator(expectedAns, cat_rank_score, state):
-    result_1 = {x:[] for x in expectedAns}
-    for cat, rank_score in cat_rank_score.items():
-        for ans in expectedAns:
-            if ans in cat.lower():
-                result_1[ans].append([cat, rank_score[0], rank_score[1]])
+    # initialize a df with the columns of cat_rank_score.columns
+    df_1 = pd.DataFrame(columns=cat_rank_score.columns)
+    for ans in expectedAns:
+        each = cat_rank_score[cat_rank_score['cat'].str.lower().str.contains(ans)]
+        # concat each df to df_1
+        df_1 = pd.concat([df_1, each], ignore_index=True)
+
+    # result_1 = {x:[] for x in expectedAns}
+    # cat_rank_score = cat_rank_score[[['rank', 'cat', 'score']]]
+    # # loop this df, get each cat, rank, score
+    # for row in cat_rank_score.iterrows():
+    #     cat = row[1]['cat']
+    #     rank = row[1]['rank']
+    #     score = row[1]['score']
+    #     for ans in expectedAns:
+    #         if ans in cat.lower():
+    #             result_1[ans].append([cat, rank, score])
+
+    # for cat, rank_score in cat_rank_score.items():
+    #     for ans in expectedAns:
+    #         if ans in cat.lower():
+    #             result_1[ans].append([cat, rank_score[0], rank_score[1]])
 
     # save result_1 to csv
     # df_1 = pd.DataFrame(columns=['expected ans', 'cat', 'rank', 'score'])
-    df_1 = pd.DataFrame(columns=['cat', 'rank', 'score'])
-    for ans, catRankScore in result_1.items():
-        for each in catRankScore:
-            df_1.loc[len(df_1.index)] = [each[0], each[1], each[2]]
+    # df_1 = pd.DataFrame(columns=['cat', 'rank', 'score'])
+    # for ans, catRankScore in result_1.items():
+    #     for each in catRankScore:
+    #         df_1.loc[len(df_1.index)] = [each[0], each[1], each[2]]
     
     # print df_1 to check if exists any unexpected answers; if yes, enter cats want 
     # to drop in a list format, to drop them from df_1 and print df_1 again. 
@@ -400,28 +435,20 @@ def expected_generator(expectedAns, cat_rank_score, state):
 def resultTestcase(testCase, state1, expectedAns_1, state2, expectedAns_2, flag='state', city1=None, city2=None):
     print('-'*20)
     print(state1 + ' -- test case: ', testCase)
-    cat_rank_score_1 = getAll_desc(testCase, cats, state1, flag, city1)
-
-    # print(cat_rank_score_1)
+    df_1 = getAll_desc(testCase, cats, state1, flag, city1)
     # save cat_rank_score_1 to csv
-    df = pd.DataFrame(columns=['cat', 'rank', 'score'])
-    for cat, rank_score in cat_rank_score_1.items():
-        df.loc[len(df.index)] = [cat, rank_score[0], rank_score[1]]
-    df.to_csv(state1 + '.csv', index=False)
+    df_1.to_csv(state1 + '.csv', index=False)
+    # print(len(df_1))
 
     print('-'*20)
     print(state2 + ' -- test case: ', testCase)
-    cat_rank_score_2 = getAll_desc(testCase, cats, state2, flag, city2)
-
-    # print(cat_rank_score_2)
+    df_2 = getAll_desc(testCase, cats, state2, flag, city2)
     # save cat_rank_score_2 to csv
-    df = pd.DataFrame(columns=['cat', 'rank', 'score'])
-    for cat, rank_score in cat_rank_score_2.items():
-        df.loc[len(df.index)] = [cat, rank_score[0], rank_score[1]]
-    df.to_csv(state2 + '.csv', index=False)
+    df_2.to_csv(state2 + '.csv', index=False)
+    # print(len(df_2))
 
-    expected_generator(expectedAns_1, cat_rank_score_1, state1)
-    expected_generator(expectedAns_2, cat_rank_score_2, state2)
+    expected_generator(expectedAns_1, df_1, state1)
+    expected_generator(expectedAns_2, df_2, state2)
 
 
 def zoomin_head_tail(state1, state2, df_state1, df_state2, df_state1_state2, threshold):
@@ -485,7 +512,10 @@ def compare_two_states(state1, state2, threshold):
     df_state2_expected = pd.read_csv(state2_expected_csv)
 
     # initialize a dataframe with columns: rank, cat, state1_score, state2_score, difference
-    df = pd.DataFrame(columns=['rank', 'cat', state1+'_score', state2+'_score', 'difference'])
+    s1_cols = [state1 + '_' + x for x in df_state1.columns[3:]]
+    s2_cols = [state2 + '_' + x for x in df_state2.columns[3:]]
+    df_cols = ['rank', 'cat', state1+'_score', state2+'_score', 'difference'] + s1_cols + s2_cols
+    df = pd.DataFrame(columns=df_cols)
 
     # get union of categories
     cats = list(set(df_state1['cat'].tolist() + df_state2['cat'].tolist()))
@@ -493,18 +523,21 @@ def compare_two_states(state1, state2, threshold):
     # get state1_score and state2_score for each category
     for cat in cats:
         state1_score = state2_score = diff = 0
+        ws_1 = ws_2 = [0] * len(df_state1.iloc[0][3:].tolist())
         if cat in set(df_state1['cat'].tolist()):
             state1_score = df_state1.loc[df_state1['cat'] == cat, 'score'].iloc[0]
+            ws_1 = df_state1.loc[df_state1['cat'] == cat].iloc[0][3:].tolist()
         else:
             state1_score = df_state1['score'].min() - 1
 
         if cat in set(df_state2['cat'].tolist()):
             state2_score = df_state2.loc[df_state2['cat'] == cat, 'score'].iloc[0]
+            ws_2 = df_state2.loc[df_state2['cat'] == cat].iloc[0][3:].tolist()
         else:
             state2_score = df_state2['score'].min() - 1
-            
+        
         diff = state1_score - state2_score
-        df.loc[len(df.index)] = [0, cat, state1_score, state2_score, diff]
+        df.loc[len(df.index)] = [0, cat, state1_score, state2_score, diff] + ws_1 + ws_2
     
     # sort df_all by difference and update rank
     df.sort_values(by=['difference'], inplace=True, ascending=False)
@@ -522,7 +555,7 @@ def compare_two_states(state1, state2, threshold):
     # plt.yticks(range(65, -65, -5))
 
     # generate df_state1_state2_expected from df
-    df_state1_state2_expected = pd.DataFrame(columns=['rank', 'cat', state1+'_score', state2+'_score', 'difference'])
+    df_state1_state2_expected = pd.DataFrame(columns=df_cols)
     # get rows of df whose cat is in df_state1_expected or df_state2_expected
     for index, row in df.iterrows():
         cat = row['cat']
@@ -540,18 +573,18 @@ def compare_two_states(state1, state2, threshold):
         rank = df.loc[df['cat'] == cat, 'rank'].iloc[0]
         plt.axvline(x=rank, color='c', linestyle='--', label='Expected Cats for ' + state1)
         if count % 2 == 0:        
-            plt.text(rank, -40, cat, rotation=45)
+            plt.text(rank, int(df['difference'].min()), cat, rotation=45)
         else:
-            plt.text(rank, 40, cat, rotation=45)
+            plt.text(rank, int(df['difference'].max()), cat, rotation=45)
         count += 1
     # highlight the expected cats 2 with a yellow vertical line
     for cat in df_state2_expected['cat'].tolist():
         rank = df.loc[df['cat'] == cat, 'rank'].iloc[0]
         plt.axvline(x=rank, color='y', linestyle='--', label='Expected Cats for ' + state2)
         if count % 2 == 0:        
-            plt.text(rank, -40, cat, rotation=45)
+            plt.text(rank, int(df['difference'].min()), cat, rotation=45)
         else:
-            plt.text(rank, 40, cat, rotation=45)
+            plt.text(rank, int(df['difference'].max()), cat, rotation=45)
         count += 1
         
     plt.xlabel('Diff. rank')
@@ -562,10 +595,6 @@ def compare_two_states(state1, state2, threshold):
     plt.close()
 
     zoomin_head_tail(state1, state2, df_state1, df_state2, df, threshold)
-
-    
-
-
 
 
     # # get expected cats' rank
@@ -777,12 +806,12 @@ if __name__ == '__main__':
     #     'Dress like a gentleman'
     # ]
 
-testCase = 'Where do families typically take their children to play in winter?'
-state = 'FL'
-cats = ['Drive-In Theater', 'Virtual Reality Centers', 'Shared Office Spaces', 
-        'Real Estate Law', 'Race Tracks', 'Tabletop Games', 'Pool & Billiards', 
-        'Occupational Therapy', 'Themed Cafes', 'Pop-up Shops']
-retrieve_score(testCase, cats, state, flag='state', city=None)
+# testCase = 'Where do families typically take their children to play in winter?'
+# state = 'FL'
+# cats = ['Drive-In Theater', 'Virtual Reality Centers', 'Shared Office Spaces', 
+#         'Real Estate Law', 'Race Tracks', 'Tabletop Games', 'Pool & Billiards', 
+#         'Occupational Therapy', 'Themed Cafes', 'Pop-up Shops']
+# retrieve_score(testCase, cats, state, flag='state', city=None)
 
 
 
