@@ -164,6 +164,6 @@ if __name__ == '__main__':
     # print(util.cos_sim(query_emb, ski))
     # print(util.cos_sim(query_emb, nurse))
 
-    save_document_embeddings('CA')
+    save_document_embeddings('PA')
 
     print('Y')

@@ -141,11 +141,11 @@ def retrieve_score_(filepath, words, catToIndex, wordToIndex, matrix):
     retrieve the tf-idf score of a word in relation to a category when the matrix and mappings from names to indices are given
     """
 
-    # phrase_score = 0.0      # adding all
-    phrase_score = 0.0     # multiplying all
+    phrase_score = 0.0
     words = preprocessor(words)
     word_list = re.findall(r"[A-Za-z'-]+", words)
 
+    # store each individual word score
     word_score_dict = {}
 
     if filepath not in catToIndex:
@@ -155,18 +155,21 @@ def retrieve_score_(filepath, words, catToIndex, wordToIndex, matrix):
     x = catToIndex[filepath]
 
     for word in word_list:
+        # stop_words shouldn't be considered
         if word in stop_words:
             # print(word, 'is a stop word')
             continue
+        # wordToIndex is the vocabulary of all the documents.
+        # If word is not in the vocabulary, it shouldn't exist in any of the documents
         if word not in wordToIndex:
-            # print("word doesn't exist: "+word)
-            # return -2
-            phrase_score *= 0.0
             print(word, "doesn't exist")
             continue
-    
 
         y = wordToIndex[word]
+
+        # take log so that the product of multiplication would not underflow
+        # add a small value to each of the word score so that log function is always defined
+        # The small value can be considered as a penalty of missing the word too. The smaller the value, the harsher the penalty.
         word_score = math.log(matrix[x, y] + 10**(-6))
         # phrase_score += matrix[x, y]    # adding all
         phrase_score += word_score    # multiplying all
