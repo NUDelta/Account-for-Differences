@@ -142,8 +142,11 @@ def retrieve_score_(filepath, words, catToIndex, wordToIndex, matrix):
     """
 
     phrase_score = 0.0
-    words = preprocessor(words)
+    # words = preprocessor(words)
     word_list = re.findall(r"[A-Za-z'-]+", words)
+    # print(word_list_old)
+    # word_list = [preprocessor(i) for i in word_list_old]
+    # print(word_list)
 
     # store each individual word score
     word_score_dict = {}
@@ -435,7 +438,8 @@ def expected_generator(expectedAns, cat_rank_score, state):
     print(state + ' -- number of expected answers: ', len(df_1))
 
 
-def resultTestcase(testCase, state1, expectedAns_1, state2, expectedAns_2, flag='state', city1=None, city2=None):
+# def resultTestcase(testCase, state1, expectedAns_1, state2, expectedAns_2, flag='state', city1=None, city2=None):
+def resultTestcase(testCase, state1, state2, flag='state', city1=None, city2=None):
     print('-'*20)
     print(state1 + ' -- test case: ', testCase)
     df_1 = getAll_desc(testCase, cats, state1, flag, city1)
@@ -450,8 +454,8 @@ def resultTestcase(testCase, state1, expectedAns_1, state2, expectedAns_2, flag=
     df_2.to_csv(state2 + '.csv', index=False)
     # print(len(df_2))
 
-    expected_generator(expectedAns_1, df_1, state1)
-    expected_generator(expectedAns_2, df_2, state2)
+    # expected_generator(expectedAns_1, df_1, state1)
+    # expected_generator(expectedAns_2, df_2, state2)
 
 
 def zoomin_head_tail(state1, state2, df_state1, df_state2, df_state1_state2, threshold):
@@ -496,6 +500,129 @@ def zoomin_head_tail(state1, state2, df_state1, df_state2, df_state1_state2, thr
     plt.close()
 
 
+# '''
+# - calculate the difference between state1 and state2 for each category and sort them by the difference
+# - create a dataframe with columns: cat, state1_score, state2_score, difference, rank
+# - save the dataframe to csv
+# - make a bar plot for rank vs difference, save it to a png file
+# '''
+# def compare_two_states(state1, state2, threshold):
+#     state1_csv = state1 + '.csv'
+#     state2_csv = state2 + '.csv'
+#     state1_expected_csv = state1 + '_expected.csv'
+#     state2_expected_csv = state2 + '_expected.csv'
+
+#     # read csv files
+#     df_state1 = pd.read_csv(state1_csv)
+#     df_state2 = pd.read_csv(state2_csv)
+#     df_state1_expected = pd.read_csv(state1_expected_csv)
+#     df_state2_expected = pd.read_csv(state2_expected_csv)
+
+#     # initialize a dataframe with columns: rank, cat, state1_score, state2_score, difference
+#     s1_cols = [state1 + '_' + x for x in df_state1.columns[3:]]
+#     s2_cols = [state2 + '_' + x for x in df_state2.columns[3:]]
+#     df_cols = ['rank', 'cat', state1+'_score', state2+'_score', 'difference'] + s1_cols + s2_cols
+#     df = pd.DataFrame(columns=df_cols)
+
+#     # get union of categories
+#     cats = list(set(df_state1['cat'].tolist() + df_state2['cat'].tolist()))
+#     print('number of categories: ', len(cats))
+#     # get state1_score and state2_score for each category
+#     for cat in cats:
+#         state1_score = state2_score = diff = 0
+#         ws_1 = ws_2 = [0] * len(df_state1.iloc[0][3:].tolist())
+#         if cat in set(df_state1['cat'].tolist()):
+#             state1_score = df_state1.loc[df_state1['cat'] == cat, 'score'].iloc[0]
+#             ws_1 = df_state1.loc[df_state1['cat'] == cat].iloc[0][3:].tolist()
+#         else:
+#             state1_score = df_state1['score'].min() - 1
+
+#         if cat in set(df_state2['cat'].tolist()):
+#             state2_score = df_state2.loc[df_state2['cat'] == cat, 'score'].iloc[0]
+#             ws_2 = df_state2.loc[df_state2['cat'] == cat].iloc[0][3:].tolist()
+#         else:
+#             state2_score = df_state2['score'].min() - 1
+        
+#         diff = state1_score - state2_score
+#         df.loc[len(df.index)] = [0, cat, state1_score, state2_score, diff] + ws_1 + ws_2
+    
+#     # sort df_all by difference and update rank
+#     df.sort_values(by=['difference'], inplace=True, ascending=False)
+#     df.reset_index(drop=True, inplace=True)
+#     for index, row in df.iterrows():
+#         df.loc[index, 'rank'] = index + 1
+
+#     # save df, df_NA, and df_all to csv
+#     df.to_csv(state1 + '_' + state2 + '.csv', index=False)
+
+#     # make a bar plot for rank vs difference
+#     plt.figure(figsize=(20, 10))
+#     plt.bar(df['rank'], df['difference'])
+#     # plt.xticks(range(0, 1250, 100))
+#     # plt.yticks(range(65, -65, -5))
+
+#     # generate df_state1_state2_expected from df
+#     df_state1_state2_expected = pd.DataFrame(columns=df_cols)
+#     # get rows of df whose cat is in df_state1_expected or df_state2_expected
+#     for index, row in df.iterrows():
+#         cat = row['cat']
+#         if cat in set(df_state1_expected['cat'].tolist() + df_state2_expected['cat'].tolist()):
+#             df_state1_state2_expected.loc[len(df_state1_state2_expected.index)] = row
+#     # order df_state1_state2_expected by rank
+#     df_state1_state2_expected.sort_values(by=['rank'], inplace=True, ascending=True)
+#     df_state1_state2_expected.reset_index(drop=True, inplace=True)
+#     # save df_state1_state2_expected to csv
+#     df_state1_state2_expected.to_csv(state1 + '_' + state2 + '_expected.csv', index=False)
+
+#     count = 0
+#     # highlight the expected cats 1 with a cyan vertical line
+#     for cat in df_state1_expected['cat'].tolist():
+#         rank = df.loc[df['cat'] == cat, 'rank'].iloc[0]
+#         plt.axvline(x=rank, color='c', linestyle='--', label='Expected Cats for ' + state1)
+#         if count % 2 == 0:        
+#             plt.text(rank, int(df['difference'].min()), cat, rotation=45)
+#         else:
+#             plt.text(rank, int(df['difference'].max()), cat, rotation=45)
+#         count += 1
+#     # highlight the expected cats 2 with a yellow vertical line
+#     for cat in df_state2_expected['cat'].tolist():
+#         rank = df.loc[df['cat'] == cat, 'rank'].iloc[0]
+#         plt.axvline(x=rank, color='y', linestyle='--', label='Expected Cats for ' + state2)
+#         if count % 2 == 0:        
+#             plt.text(rank, int(df['difference'].min()), cat, rotation=45)
+#         else:
+#             plt.text(rank, int(df['difference'].max()), cat, rotation=45)
+#         count += 1
+        
+#     plt.xlabel('Diff. rank')
+#     plt.ylabel('Score of Difference')
+#     plt.title(state1 + ' vs. ' + state2)
+#     # plt.legend()
+#     plt.savefig(state1 + '_' + state2 + '.png')
+#     plt.close()
+
+#     zoomin_head_tail(state1, state2, df_state1, df_state2, df, threshold)
+
+
+#     # # get expected cats' rank
+#     # expected_diff = pd.DataFrame(columns=['rank', 'cat', state1+'_score', state2+'_score', 'difference'])
+#     # for cat in expectedCats_1 + expectedCats_2:
+#     #     if cat not in df['cat'].tolist():
+#     #         print(cat)
+#     #         row = df_NA.loc[df_NA['cat'] == cat].iloc[0]
+#     #         expected_diff.loc[len(expected_diff)] = list(row)
+#     #         continue
+
+#     #     # get row of this cat in df
+#     #     row = df.loc[df['cat'] == cat].iloc[0]
+#     #     # store into expected_diff use .loc
+#     #     expected_diff.loc[len(expected_diff)] = list(row)
+
+#     # # save expected_diff to csv
+#     # expected_diff.to_csv(state1 + '_' + state2 + '_expected.csv', index=False)
+
+
+
 '''
 - calculate the difference between state1 and state2 for each category and sort them by the difference
 - create a dataframe with columns: cat, state1_score, state2_score, difference, rank
@@ -505,14 +632,10 @@ def zoomin_head_tail(state1, state2, df_state1, df_state2, df_state1_state2, thr
 def compare_two_states(state1, state2, threshold):
     state1_csv = state1 + '.csv'
     state2_csv = state2 + '.csv'
-    state1_expected_csv = state1 + '_expected.csv'
-    state2_expected_csv = state2 + '_expected.csv'
 
     # read csv files
     df_state1 = pd.read_csv(state1_csv)
     df_state2 = pd.read_csv(state2_csv)
-    df_state1_expected = pd.read_csv(state1_expected_csv)
-    df_state2_expected = pd.read_csv(state2_expected_csv)
 
     # initialize a dataframe with columns: rank, cat, state1_score, state2_score, difference
     s1_cols = [state1 + '_' + x for x in df_state1.columns[3:]]
@@ -551,72 +674,46 @@ def compare_two_states(state1, state2, threshold):
     # save df, df_NA, and df_all to csv
     df.to_csv(state1 + '_' + state2 + '.csv', index=False)
 
-    # make a bar plot for rank vs difference
-    plt.figure(figsize=(20, 10))
-    plt.bar(df['rank'], df['difference'])
-    # plt.xticks(range(0, 1250, 100))
-    # plt.yticks(range(65, -65, -5))
+    # get cats of df which is in the top threshold in df_state1
+    df_state1_top = df_state1.loc[df_state1['rank'] <= threshold]
+    df_state1_top_cats = df_state1_top['cat'].tolist()
+    df_state1_diff = df.loc[df['cat'].isin(df_state1_top_cats)]
+    # order df_state1_diff by diff score and update rank
+    df_state1_diff.sort_values(by=['difference'], inplace=True, ascending=False)
+    df_state1_diff.reset_index(drop=True, inplace=True)
+    # update the rank
+    for index, row in df_state1_diff.iterrows():
+        df_state1_diff.loc[index, 'rank'] = index + 1
+    # pick top 20 
+    df_state1_diff = df_state1_diff.iloc[:20]
 
-    # generate df_state1_state2_expected from df
-    df_state1_state2_expected = pd.DataFrame(columns=df_cols)
-    # get rows of df whose cat is in df_state1_expected or df_state2_expected
-    for index, row in df.iterrows():
-        cat = row['cat']
-        if cat in set(df_state1_expected['cat'].tolist() + df_state2_expected['cat'].tolist()):
-            df_state1_state2_expected.loc[len(df_state1_state2_expected.index)] = row
-    # order df_state1_state2_expected by rank
-    df_state1_state2_expected.sort_values(by=['rank'], inplace=True, ascending=True)
-    df_state1_state2_expected.reset_index(drop=True, inplace=True)
-    # save df_state1_state2_expected to csv
-    df_state1_state2_expected.to_csv(state1 + '_' + state2 + '_expected.csv', index=False)
+    # only keep cats which are in df_state1's top 20's cats
+    df_state1_top_20 = df_state1.loc[df_state1['rank'] <= 20]
+    df_state1_top_20_cats = df_state1_top_20['cat'].tolist()
+    df_state1_diff = df_state1_diff.loc[df_state1_diff['cat'].isin(df_state1_top_20_cats)]
+    # save df_state1_diff to csv
+    df_state1_diff.to_csv(state1 + '_diff_20.csv', index=False)
 
-    count = 0
-    # highlight the expected cats 1 with a cyan vertical line
-    for cat in df_state1_expected['cat'].tolist():
-        rank = df.loc[df['cat'] == cat, 'rank'].iloc[0]
-        plt.axvline(x=rank, color='c', linestyle='--', label='Expected Cats for ' + state1)
-        if count % 2 == 0:        
-            plt.text(rank, int(df['difference'].min()), cat, rotation=45)
-        else:
-            plt.text(rank, int(df['difference'].max()), cat, rotation=45)
-        count += 1
-    # highlight the expected cats 2 with a yellow vertical line
-    for cat in df_state2_expected['cat'].tolist():
-        rank = df.loc[df['cat'] == cat, 'rank'].iloc[0]
-        plt.axvline(x=rank, color='y', linestyle='--', label='Expected Cats for ' + state2)
-        if count % 2 == 0:        
-            plt.text(rank, int(df['difference'].min()), cat, rotation=45)
-        else:
-            plt.text(rank, int(df['difference'].max()), cat, rotation=45)
-        count += 1
-        
-    plt.xlabel('Diff. rank')
-    plt.ylabel('Score of Difference')
-    plt.title(state1 + ' vs. ' + state2)
-    # plt.legend()
-    plt.savefig(state1 + '_' + state2 + '.png')
-    plt.close()
+    # get cats of df which is in the top threshold in df_state2
+    df_state2_top = df_state2.loc[df_state2['rank'] <= threshold]
+    df_state2_top_cats = df_state2_top['cat'].tolist()
+    df_state2_diff = df.loc[df['cat'].isin(df_state2_top_cats)]
+    # order df_state2_diff by diff score and update rank
+    df_state2_diff.sort_values(by=['difference'], inplace=True, ascending=True)
+    df_state2_diff.reset_index(drop=True, inplace=True)
+    # update the rank
+    for index, row in df_state2_diff.iterrows():
+        df_state2_diff.loc[index, 'rank'] = index + 1
+    # pick top 20
+    df_state2_diff = df_state2_diff.iloc[:20]
 
-    zoomin_head_tail(state1, state2, df_state1, df_state2, df, threshold)
+    # only keep cats which are in df_state2's top 20's cats
+    df_state2_top_20 = df_state2.loc[df_state2['rank'] <= 20]
+    df_state2_top_20_cats = df_state2_top_20['cat'].tolist()
+    df_state2_diff = df_state2_diff.loc[df_state2_diff['cat'].isin(df_state2_top_20_cats)]
+    # save df_state2_diff to csv
+    df_state2_diff.to_csv(state2 + '_diff_20.csv', index=False)
 
-
-    # # get expected cats' rank
-    # expected_diff = pd.DataFrame(columns=['rank', 'cat', state1+'_score', state2+'_score', 'difference'])
-    # for cat in expectedCats_1 + expectedCats_2:
-    #     if cat not in df['cat'].tolist():
-    #         print(cat)
-    #         row = df_NA.loc[df_NA['cat'] == cat].iloc[0]
-    #         expected_diff.loc[len(expected_diff)] = list(row)
-    #         continue
-
-    #     # get row of this cat in df
-    #     row = df.loc[df['cat'] == cat].iloc[0]
-    #     # store into expected_diff use .loc
-    #     expected_diff.loc[len(expected_diff)] = list(row)
-
-    # # save expected_diff to csv
-    # expected_diff.to_csv(state1 + '_' + state2 + '_expected.csv', index=False)
-   
 
 def compare_expected(path, state1, state2):
     state1_csv = path + state1 + '_expected.csv'
@@ -650,17 +747,17 @@ def compare_expected(path, state1, state2):
 
 
 if __name__ == '__main__':
-    # path = 'results/filter3719+good3719/FL_PA/'
-    # compare_two_states_100(path, 'FL', 'PA')
-    # compare_expected(path, 'FL', 'PA')
-    retrieve_score("Where do families typically take their children to play in winter?",'Indoor Playcentre', 'FL')
-    print('-'*100)
+    # # path = 'results/filter3719+good3719/FL_PA/'
+    # # compare_two_states_100(path, 'FL', 'PA')
+    # # compare_expected(path, 'FL', 'PA')
+    # retrieve_score("Where do families typically take their children to play in winter?",'Indoor Playcentre', 'FL')
+    # print('-'*100)
 
     '''
     1. get data distribution
     '''
     cats = get_data_distribution()
-    # cats = get_cats_city('LA', 'CA', 'New Orleans', 'Santa Barbara')
+    # # cats = get_cats_city('LA', 'CA', 'New Orleans', 'Santa Barbara')
     
     '''
     2. generating results for test case
@@ -668,84 +765,85 @@ if __name__ == '__main__':
     '''
     2.1. test case 1
     '''
-    testCase = 'Where do families typically take their children to play in winter?'
+    testCase = 'place or activity people will go or do for fun in winter'
 
-    # expected answers for FL
-    expectedAns_FL = [
-        'beach',
-        'park',
-        'aquarium',
-        'zoo'
-    ]
-
-    # expected answers for PA
-    expectedAns_PA = [
-        'ski',
-        'skat',
-        'bik',
-        'museum',
-        'park'
-    ]
-    resultTestcase(testCase, 'FL', expectedAns_FL, 'PA', expectedAns_PA)
-
-    '''
-    2.2. test case 2
-    '''
-    # testCase = 'Affordable food for a party'
-    # expected answers for New Orleans
-    # expectedAns_NO = [
-    #     'Cajun-Creole',
-    #     'Chicken Shop',
-    #     'Chicken Wings',
-    #     'Soul food',
-    #     'Pizza',
-    #     'Fast Food',
-    #     'American'
-    # ]
-    # # expected answers for SB
-    # expectedAns_SB = [
-    #     'Tacos',
-    #     'Mexican',
-    #     'Caribbean',
-    #     'Pizza',
-    #     'Fast Food',
-    #     'American'
-    # ]
-    # expectedAns_NO = [
-    #     'cajun',
-    #     'chicken',
-    #     'soul food',
-    #     'pizza',
-    #     'fast food',
-    #     'american'
-    # ]
-    # # expected answers for SB
-    # expectedAns_SB = [
-    #     'tacos',
-    #     'mexican',
-    #     'caribbean',
-    #     'pizza',
-    #     'fast food',
-    #     'american'
+    # # expected answers for FL
+    # expectedAns_FL = [
+    #     'beach',
+    #     'park',
+    #     'aquarium',
+    #     'zoo'
     # ]
 
-    # resultTestcase(testCase, 'LA', expectedAns_NO, 'CA', expectedAns_SB, flag='city', city1='New Orleans', city2='Santa Barbara')
+    # # expected answers for PA
+    # expectedAns_PA = [
+    #     'ski',
+    #     'skat',
+    #     'bik',
+    #     'museum',
+    #     'park'
+    # ]
+    # resultTestcase(testCase, 'FL', expectedAns_FL, 'PA', expectedAns_PA)
+    resultTestcase(testCase, 'FL', 'PA')
+
+    # '''
+    # 2.2. test case 2
+    # '''
+    # # testCase = 'Affordable food for a party'
+    # # expected answers for New Orleans
+    # # expectedAns_NO = [
+    # #     'Cajun-Creole',
+    # #     'Chicken Shop',
+    # #     'Chicken Wings',
+    # #     'Soul food',
+    # #     'Pizza',
+    # #     'Fast Food',
+    # #     'American'
+    # # ]
+    # # # expected answers for SB
+    # # expectedAns_SB = [
+    # #     'Tacos',
+    # #     'Mexican',
+    # #     'Caribbean',
+    # #     'Pizza',
+    # #     'Fast Food',
+    # #     'American'
+    # # ]
+    # # expectedAns_NO = [
+    # #     'cajun',
+    # #     'chicken',
+    # #     'soul food',
+    # #     'pizza',
+    # #     'fast food',
+    # #     'american'
+    # # ]
+    # # # expected answers for SB
+    # # expectedAns_SB = [
+    # #     'tacos',
+    # #     'mexican',
+    # #     'caribbean',
+    # #     'pizza',
+    # #     'fast food',
+    # #     'american'
+    # # ]
+
+    # # resultTestcase(testCase, 'LA', expectedAns_NO, 'CA', expectedAns_SB, flag='city', city1='New Orleans', city2='Santa Barbara')
 
 
-    '''
-    3. make plots for each state in the test case
-    '''
-    # expectedCats_FL = ['Zoos', 'Aquariums', 'Aquarium Services', 'Beach Equipment Rentals', 'Beaches']
-    # rank threshold = 100
-    generated_vs_expected('FL', 100)
+    # '''
+    # 3. make plots for each state in the test case
+    # '''
+    # # expectedCats_FL = ['Zoos', 'Aquariums', 'Aquarium Services', 'Beach Equipment Rentals', 'Beaches']
+    # # rank threshold = 100
+    # generated_vs_expected('FL', 100)
 
-    # expectedCats_PA = ['Trampoline Parks', 'Children"s Museums', 'Ski & Snowboard Shops', 'Ski Resorts', 'Water Parks', 'Skating Rinks']
-    generated_vs_expected('PA', 100)
+    # # expectedCats_PA = ['Trampoline Parks', 'Children"s Museums', 'Ski & Snowboard Shops', 'Ski Resorts', 'Water Parks', 'Skating Rinks']
+    # generated_vs_expected('PA', 100)
 
-    # expectedCats_No = ['Cajun/Creole', 'Chicken Shop', 'Chicken Wings', 'Soul Food']
-    # expectedCats_SB = ['Tacos', 'Mexican', 'Caribbean']
-    # generated_vs_expected('LA', expectedCats_No)
-    # generated_vs_expected('CA', expectedCats_SB)
+    # # expectedCats_No = ['Cajun/Creole', 'Chicken Shop', 'Chicken Wings', 'Soul Food']
+    # # expectedCats_SB = ['Tacos', 'Mexican', 'Caribbean']
+    # # generated_vs_expected('LA', expectedCats_No)
+    # # generated_vs_expected('CA', expectedCats_SB)
 
 
     '''
@@ -753,20 +851,11 @@ if __name__ == '__main__':
     '''
     # threshold = 100: top 100 in setting 1 or 2, and top 100 in diff ranking
     compare_two_states('FL', 'PA', 100)
+    # compare_two_states('FL', 'PA', 100)
     # compare_two_states('LA', expectedCats_No, 'CA', expectedCats_SB)
 
 
-    '''
-    for interface
-    '''
-    # ask user to input a question
     
-    
-
-
-
-
-
 
 
     # for testCase in testCases:
@@ -819,3 +908,40 @@ if __name__ == '__main__':
 
 
     
+    # FL_csv = 'results/filter3719+good3719/FL_PA_new2/FL.csv'
+    # PA_csv = 'results/filter3719+good3719/FL_PA_new2/PA.csv'
+    # all_csv = 'results/filter3719+good3719/FL_PA_new2/FL_PA.csv'
+    # # read csv to df
+    # df_FL = pd.read_csv(FL_csv)
+    # df_PA = pd.read_csv(PA_csv)
+    # df_all = pd.read_csv(all_csv)
+
+    # # get df_all rows which in the top 100 cats of df_FL
+    # df_FL_top100 = df_FL.head(100)
+    # df_FL_top100_cats = df_FL_top100['cat'].tolist()
+    # df_all_top100 = df_all[df_all['cat'].isin(df_FL_top100_cats)]
+    # # rank df_all_top100 by diff
+    # df_all_top100 = df_all_top100.sort_values(by=['difference'], ascending=False)
+    # # save to FL_diff_100.csv
+    # df_all_top100.to_csv('FL_diff_100.csv', index=False)
+
+    # # get df_all rows which in the top 100 cats of df_PA
+    # df_PA_top100 = df_PA.head(100)
+    # df_PA_top100_cats = df_PA_top100['cat'].tolist()
+    # df_all_tail100 = df_all[df_all['cat'].isin(df_PA_top100_cats)]
+    # # rank df_all_tail100 by diff
+    # df_all_tail100 = df_all_tail100.sort_values(by=['difference'], ascending=True)
+    # # save to PA_diff_100.csv
+    # df_all_tail100.to_csv('PA_diff_100.csv', index=False)
+
+    # # df_FL count values for typically and winter columns
+    # df_FL_count = df_FL[['typically', 'winter']].apply(pd.Series.value_counts)
+    # print('-'*20)
+    # print('FL')
+    # print(df_FL_count)
+
+    # # df_PA count values for typically and winter columns
+    # df_PA_count = df_PA[['typically', 'winter']].apply(pd.Series.value_counts)
+    # print('-'*20)
+    # print('PA')
+    # print(df_PA_count)
