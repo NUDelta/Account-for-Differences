@@ -15,13 +15,18 @@ import matplotlib.pyplot as plt
 from collections import Counter
 
 
+'''
+'''
+connection = pymysql.connect(host='127.0.0.1',
+                                user='root',
+                                port=3306, # check out the port number
+                                password='Jiayi-MySQL', # your password
+                                db='yelp', # database name
+                                cursorclass=pymysql.cursors.DictCursor)
+
+
+
 def all_states():
-    connection = pymysql.connect(host='localhost',
-                                 user='root',
-                                 port=3306,
-                                 password='suhuai2001',
-                                 db='yelp',
-                                 cursorclass=pymysql.cursors.Cursor)
     cursor = connection.cursor()
     query = "SELECT DISTINCT business.State FROM business"
     cursor.execute(query)
@@ -45,19 +50,11 @@ def all_states():
     '''
 
     cursor.close()
-    connection.close()
     return states
 
 
 
 def get_cities():
-    connection = pymysql.connect(host='localhost',
-                                 user='root',
-                                 port=3306,
-                                 password='suhuai2001',
-                                 db='yelp',
-                                 cursorclass=pymysql.cursors.Cursor)
-
     cursor = connection.cursor()
     cities = {}
     states = all_states()
@@ -78,7 +75,6 @@ def get_cities():
         '''
 
     cursor.close()
-    connection.close()
     return cities
 
 
@@ -86,16 +82,9 @@ all_cities = get_cities()
 
 
 def get_categories():
-
     categories_cities = {}
     categories_states = {}
-    connection = pymysql.connect(host='localhost',
-                                 user='root',
-                                 port=3306,
-                                 password='suhuai2001',
-                                 db='yelp',
-                                 cursorclass=pymysql.cursors.Cursor)
-
+    
     cursor = connection.cursor()
     states = all_states()
     query_state = ("SELECT DISTINCT Category_name "
@@ -122,7 +111,6 @@ def get_categories():
         categories_cities[state] = cur_state
 
     cursor.close()
-    connection.close()
     return categories_states, categories_cities
 
 
@@ -246,13 +234,6 @@ def prepare_document_names(cat_of_setting, flag='state'):
 
 def sql2txt(states, flag='state'):
 
-    connection = pymysql.connect(host='localhost',
-                                 user='root',
-                                 port=3306,
-                                 password='suhuai2001',
-                                 db='yelp',
-                                 cursorclass=pymysql.cursors.Cursor)
-
     cursor = connection.cursor()
 
     if isinstance(states, str):
@@ -294,7 +275,6 @@ def sql2txt(states, flag='state'):
         print('unknown flag')
 
     cursor.close()
-    connection.close()
 
 
 def create_all_documents(flag='state'):
@@ -469,10 +449,12 @@ def save_good_categories(threshold=1000):
 
 
 if __name__ == '__main__':
+    '''
+    '''
     # categories = ('Sushi Bars',
     #               'Bikes',
     #               'Dance Clubs')
-    # create_all_documents(flag='state')
+    create_all_documents(flag='state')
     # create_all_documents(flag='city')
     #compute_and_save('state')
     #compute_and_save('city')
@@ -485,9 +467,10 @@ if __name__ == '__main__':
     #save_good_categories()
     #compute_and_save(1000, 'state')
     #compute_and_save(1000, 'city')
-    compute_and_save(0, 'state')
+    # compute_and_save(0, 'state')
     #print('Y')
 
     # check_non_empty('PA', 'West Norriton')
     #print(categories_of_city['IL']['Chicago'])
+    connection.close()
 
