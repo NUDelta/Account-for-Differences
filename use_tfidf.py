@@ -629,7 +629,7 @@ def zoomin_head_tail(state1, state2, df_state1, df_state2, df_state1_state2, thr
 - save the dataframe to csv
 - make a bar plot for rank vs difference, save it to a png file
 '''
-def compare_two_states(state1, state2, threshold):
+def compare_two_states(state1, state2, param_setting1_topX, param_setting1_2_topY, intersection_topZ):
     state1_csv = state1 + '.csv'
     state2_csv = state2 + '.csv'
 
@@ -665,6 +665,26 @@ def compare_two_states(state1, state2, threshold):
         diff = state1_score - state2_score
         df.loc[len(df.index)] = [0, cat, state1_score, state2_score, diff] + ws_1 + ws_2
     
+    # get rows which state1_score != 0 and state2_score == 0, store them to df_state1_prevalence
+    df_state1_pre = df.loc[(df[state1+'_score'] != df[state1+'_score'].min()) & (df[state2+'_score'] == df[state2+'_score'].min())]
+    # sort by state1_score and update rank
+    df_state1_pre.sort_values(by=[state1+'_score'], inplace=True, ascending=False)
+    df_state1_pre.reset_index(drop=True, inplace=True)
+    for index, row in df_state1_pre.iterrows():
+        df_state1_pre.loc[index, 'rank'] = index + 1
+    df_state1_pre.to_csv(state1 + '_prevalence.csv', index=False)
+
+    # get rows which state1_score == 0 and state2_score != 0, store them to df_state2_prevalence
+    df_state2_pre = df.loc[(df[state1+'_score'] == df[state1+'_score'].min()) & (df[state2+'_score'] != df[state2+'_score'].min())]
+    # sort by state2_score and update rank
+    df_state2_pre.sort_values(by=[state2+'_score'], inplace=True, ascending=False)
+    df_state2_pre.reset_index(drop=True, inplace=True)
+    for index, row in df_state2_pre.iterrows():
+        df_state2_pre.loc[index, 'rank'] = index + 1
+    df_state2_pre.to_csv(state2 + '_prevalence.csv', index=False)
+
+    # remove rows which in df_state1_pre and df_state2_pre from df
+    df = df.loc[(df[state1+'_score'] != df[state1+'_score'].min()) & (df[state2+'_score'] != df[state2+'_score'].min())]
     # sort df_all by difference and update rank
     df.sort_values(by=['difference'], inplace=True, ascending=False)
     df.reset_index(drop=True, inplace=True)
@@ -673,46 +693,67 @@ def compare_two_states(state1, state2, threshold):
 
     # save df, df_NA, and df_all to csv
     df.to_csv(state1 + '_' + state2 + '.csv', index=False)
-
+    
     # get cats of df which is in the top threshold in df_state1
-    df_state1_top = df_state1.loc[df_state1['rank'] <= threshold]
-    df_state1_top_cats = df_state1_top['cat'].tolist()
+    # df_state1_top = df_state1.loc[df_state1['rank'] <= param_setting1_topX]
+    # df_state1_relevant stores rows which score != min score
+    df_state1_relevant = df_state1.loc[df_state1['score'] != df_state1['score'].min()]
+    # df_state1_top = df_state1_relevant.iloc[:int(param_setting1_topX * len(df_state1_relevant))]
+    df_state1_top_cats = df_state1_relevant['cat'].tolist()
+
+    # df_head_Y = df.loc[df['rank'] <= param_setting1_2_topY]
+    # df_state1_has_diff = df.loc[df['difference'] > 0]
+    # df_head_Y = df_state1_has_diff.iloc[:int(param_setting1_2_topY * len(df_state1_has_diff))]
     df_state1_diff = df.loc[df['cat'].isin(df_state1_top_cats)]
+
     # order df_state1_diff by diff score and update rank
     df_state1_diff.sort_values(by=['difference'], inplace=True, ascending=False)
     df_state1_diff.reset_index(drop=True, inplace=True)
+
     # update the rank
     for index, row in df_state1_diff.iterrows():
         df_state1_diff.loc[index, 'rank'] = index + 1
     # pick top 20 
-    df_state1_diff = df_state1_diff.iloc[:20]
+    # intersection_num = int(intersection_topZ * len(df_state1_diff))
+    # if intersection_num < 1:
+    #     intersection_num = 1
+    # df_state1_diff_topZ = df_state1_diff.iloc[:intersection_num]
 
-    # only keep cats which are in df_state1's top 20's cats
-    df_state1_top_20 = df_state1.loc[df_state1['rank'] <= 20]
-    df_state1_top_20_cats = df_state1_top_20['cat'].tolist()
-    df_state1_diff = df_state1_diff.loc[df_state1_diff['cat'].isin(df_state1_top_20_cats)]
     # save df_state1_diff to csv
-    df_state1_diff.to_csv(state1 + '_diff_20.csv', index=False)
+    # df_state1_diff.to_csv(state1 + '_' + str(param_setting1_topX) + '_' + str(param_setting1_2_topY) + '_diff.csv', index=False)
+    df_state1_diff.to_csv(state1 + '_diff.csv', index=False)
+    # df_state1_diff_topZ.to_csv(state1 + '_' + str(param_setting1_topX) + '_' + str(param_setting1_2_topY) + '_diff_' + str(intersection_topZ) + '.csv', index=False)
 
+    '''
+    '''
     # get cats of df which is in the top threshold in df_state2
-    df_state2_top = df_state2.loc[df_state2['rank'] <= threshold]
-    df_state2_top_cats = df_state2_top['cat'].tolist()
+    # df_state2_top = df_state2.loc[df_state2['rank'] <= param_setting1_topX]
+    # df_state2_relevant stores rows which score != min score
+    df_state2_relevant = df_state2.loc[df_state2['score'] != df_state2['score'].min()]
+    # df_state2_top = df_state2_relevant.iloc[:int(param_setting1_topX * len(df_state2_relevant))]
+    df_state2_top_cats = df_state2_relevant['cat'].tolist()
+
+    # df_state2_has_diff = df.loc[df['difference'] < 0]
+    # df_tail_Y = df_state2_has_diff.iloc[(-1) * int(param_setting1_2_topY * len(df_state2_has_diff)):]
     df_state2_diff = df.loc[df['cat'].isin(df_state2_top_cats)]
+
     # order df_state2_diff by diff score and update rank
     df_state2_diff.sort_values(by=['difference'], inplace=True, ascending=True)
     df_state2_diff.reset_index(drop=True, inplace=True)
     # update the rank
     for index, row in df_state2_diff.iterrows():
         df_state2_diff.loc[index, 'rank'] = index + 1
-    # pick top 20
-    df_state2_diff = df_state2_diff.iloc[:20]
 
-    # only keep cats which are in df_state2's top 20's cats
-    df_state2_top_20 = df_state2.loc[df_state2['rank'] <= 20]
-    df_state2_top_20_cats = df_state2_top_20['cat'].tolist()
-    df_state2_diff = df_state2_diff.loc[df_state2_diff['cat'].isin(df_state2_top_20_cats)]
+    # pick top 20
+    # intersection_num = int(intersection_topZ * len(df_state2_diff))
+    # if intersection_num < 1:
+    #     intersection_num = 1
+    # df_state2_diff_topZ = df_state2_diff.iloc[:intersection_num]
+
     # save df_state2_diff to csv
-    df_state2_diff.to_csv(state2 + '_diff_20.csv', index=False)
+    df_state2_diff.to_csv(state2 + '_diff.csv', index=False)
+    # df_state2_diff.to_csv(state2 + '_' + str(param_setting1_topX) + '_' + str(param_setting1_2_topY) + '_diff.csv', index=False)
+    # df_state2_diff_topZ.to_csv(state2 + '_' + str(param_setting1_topX) + '_' + str(param_setting1_2_topY) + '_diff_' + str(intersection_topZ) + '.csv', index=False)
 
 
 def compare_expected(path, state1, state2):
@@ -743,7 +784,8 @@ def compare_expected(path, state1, state2):
     # save df_expected to csv
     df_expected.to_csv(path + state1 + '_' + state2 + '_expected2.csv', index=False)
 
- 
+
+
 
 
 if __name__ == '__main__':
@@ -765,7 +807,17 @@ if __name__ == '__main__':
     '''
     2.1. test case 1
     '''
-    testCase = 'place or activity people will go or do for fun in winter'
+    # testCase = 'place or activity people will go or do for fun in winter'
+    # testCase = 'place to have fun in winter'
+    # testCase = 'place to go in winter'
+
+    testCase = 'where to sunbathe'
+    # testCase = 'place to sunbathe'
+    setting1 = 'FL'
+    setting2 = 'PA'
+    param_setting1_topX = 0.2
+    param_setting1_2_topY = 1   # already more relevant to FL than PA
+    intersection_topZ = 1
 
     # # expected answers for FL
     # expectedAns_FL = [
@@ -784,7 +836,7 @@ if __name__ == '__main__':
     #     'park'
     # ]
     # resultTestcase(testCase, 'FL', expectedAns_FL, 'PA', expectedAns_PA)
-    resultTestcase(testCase, 'FL', 'PA')
+    resultTestcase(testCase, setting1, setting2)
 
     # '''
     # 2.2. test case 2
@@ -850,8 +902,9 @@ if __name__ == '__main__':
     4. compare two states in the test case and make plots
     '''
     # threshold = 100: top 100 in setting 1 or 2, and top 100 in diff ranking
-    compare_two_states('FL', 'PA', 100)
-    # compare_two_states('FL', 'PA', 100)
+    compare_two_states(setting1, setting2, param_setting1_topX, param_setting1_2_topY, intersection_topZ)
+    # compare_two_states('FL', 'PA', 10)
+
     # compare_two_states('LA', expectedCats_No, 'CA', expectedCats_SB)
 
 
